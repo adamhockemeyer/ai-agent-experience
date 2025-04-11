@@ -1,0 +1,43 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Next.js: Frontend",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "npm run dev",
+            "cwd": "${workspaceFolder}/src/frontend",
+            "sourceMaps": true,
+            "trace": true
+        },
+        {
+            "name": "Python FastAPI",
+            "type": "debugpy",
+            "request": "launch",
+            // Point to the Python executable in .venv/Scripts
+            "module": "uvicorn",
+            "args": [
+                "app.main:app",
+                //"--reload",
+                "--env-file",
+                ".env",
+                "--log-level",
+                "debug"
+            ],
+            "jinja": true,
+            "cwd": "${workspaceFolder}/src/api"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Next.JS Frontend & Python FastAPI",
+            "configurations": [
+                "Next.js: Frontend",
+                "Python FastAPI"
+            ]
+        }
+    ]
+}
