@@ -121,9 +121,15 @@ class AzureAppConfig(RemoteConfig[T]):
         )
         
         result = []
-        async for setting in settings:
-            # Convert each setting to the specified model type
-            value_dict = json.loads(setting.value)
-            result.append(model_type.parse_obj(value_dict))
+        # The settings object is an ItemPaged which is not async-iterable
+        # Iterate through it synchronously
+        for setting in settings:
+            try:
+                # Convert each setting to the specified model type
+                value_dict = json.loads(setting.value)
+                result.append(model_type.parse_obj(value_dict))
+            except Exception as e:
+                # Log error but continue with other settings
+                print(f"Error parsing setting {setting.key}: {str(e)}")
             
         return result

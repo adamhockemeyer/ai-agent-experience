@@ -64,7 +64,10 @@ def setup_telemetry(app: FastAPI, service_name: str = "ai-agents-api"):
         return
 
     
-    configure_azure_monitor(connection_string=connection_string)
+    configure_azure_monitor(
+        connection_string=connection_string,
+        instrumentation_options={"azure_sdk": {"enabled": False}, "fastapi": {"enabled": True}, "flask": {"enabled": False}, "django": {"enabled": False}, "psycopg2": {"enabled": False}} 
+        )
     
     # Set up trace provider with the service name
     resource = Resource(attributes={

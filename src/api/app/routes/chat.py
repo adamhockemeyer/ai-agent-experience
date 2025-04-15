@@ -8,6 +8,7 @@ from typing import Any
 from app.models import ChatRequest, ChatResponse, Agent
 from app.services.chat_service import ChatService
 from app.config.azure_app_config import AzureAppConfig
+from app.config.remote_config import RemoteConfig
 from app.dependencies import get_chat_service, get_remote_config
 
 router = APIRouter()
@@ -19,7 +20,7 @@ async def chat(
     request: ChatRequest,
     background_tasks: BackgroundTasks,
     chat_service: ChatService = Depends(get_chat_service),
-    agent_config: AzureAppConfig = Depends(get_remote_config)
+    agent_config: RemoteConfig = Depends(get_remote_config)
 ) -> Any:
     """
     Chat with an AI agent with streaming response.

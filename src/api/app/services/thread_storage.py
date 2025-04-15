@@ -169,7 +169,7 @@ class CosmosDbThreadStorage(ThreadStorage[T]):
                     'paths': [f'/{self.partition_key}'],  # Use configurable partition key
                     'kind': 'Hash'
                 },
-                'defaultTtl': self.ttl_seconds
+                'default_ttl': self.ttl_seconds
             }
             
             try:
@@ -194,7 +194,7 @@ class CosmosDbThreadStorage(ThreadStorage[T]):
                 'id': session_id,
                 self.partition_key: session_id,
                 'thread': serialized_thread,
-                'ttl': self.ttl_seconds
+                '_ttl': self.ttl_seconds
             }
             
             # Upsert the document

@@ -22,12 +22,16 @@ class Settings(BaseSettings):
     cosmos_db_partition_key: str = "sessionId"  # Add this line for the partition key name
     thread_ttl_seconds: int = 86400  # 24 hours default TTL
 
-
-     # MCP plugin configuration
+    # MCP plugin configuration
     mcp_enable_plugins: bool = True
     mcp_timeout_seconds: int = 30
     mcp_max_retries: int = 2
     mcp_npm_registry: str = ""  # Optional custom npm registry
+    
+    # OpenAPI plugin cache configuration
+    openapi_cache_enabled: bool = True
+    openapi_cache_ttl_seconds: int = 3600  # 1 hour default TTL
+    openapi_cache_refresh_interval_seconds: int = 300  # 5 minutes default refresh interval
 
     model_config = ConfigDict(
         env_file=".env",
