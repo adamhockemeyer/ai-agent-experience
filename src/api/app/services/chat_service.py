@@ -46,15 +46,35 @@ class ChatService:
                     # Initialize plugins for this agent
                     plugins = await plugin_manager.initialize_plugins(agent)
                     
-                    # Create the agent using factory pattern
+                    # Check for existing thread first to make decisions about agent creation
+                    thread_id = None
+                    if existing_thread and hasattr(existing_thread, 'thread_type') and existing_thread.thread_type == "AzureAIAgentThread":
+                        if agent.agentType == "AzureAIAgent":
+                            logger.info(f"Found saved AzureAIAgentThread with ID: {existing_thread.thread_id} for session {session_id}")
+                            thread_id = existing_thread.thread_id
+                    
+                    # Create the agent using factory pattern - with thread_id if applicable
                     ai_agent, thread = await AgentFactory.create_agent(
-                        kernel, agent, plugins
+                        kernel, 
+                        agent, 
+                        plugins,
+                        thread_id=thread_id
                     )
                     
-                    # Use existing thread if available and compatible
-                    if existing_thread and isinstance(existing_thread, type(thread)):
-                        logger.info(f"Using existing thread for session {session_id}")
-                        thread = existing_thread
+                    # Handle regular thread restoration for non-AzureAI threads
+                    if existing_thread:
+                        # Skip AzureAIAgentThread since we already handled it above
+                        if hasattr(existing_thread, 'thread_type') and existing_thread.thread_type == "AzureAIAgentThread":
+                            if agent.agentType == "AzureAIAgent":
+                                logger.info(f"Using restored AzureAIAgentThread with ID: {existing_thread.thread_id} for session {session_id}")
+                            else:
+                                logger.warning(f"Found AzureAIAgentThread ID but agent is not AzureAIAgent type, using new thread")
+                        # Use existing thread if it's the same type
+                        elif isinstance(existing_thread, type(thread)):
+                            logger.info(f"Using existing thread for session {session_id}")
+                            thread = existing_thread
+                        else:
+                            logger.warning(f"Existing thread type {type(existing_thread)} not compatible with {type(thread)}, using new thread")
                     
                     # Create a queue for merging content and function call events
                     merged_queue = asyncio.Queue()

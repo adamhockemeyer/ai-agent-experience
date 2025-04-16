@@ -20,7 +20,7 @@ class AgentFactory:
     """Factory for creating semantic kernel agents based on configuration."""
     
     @staticmethod
-    async def create_agent(kernel: Kernel, agent_config: Agent, plugins: List[Any] = None) -> Tuple[Any, Any]:
+    async def create_agent(kernel: Kernel, agent_config: Agent, plugins: List[Any] = None, thread_id: str = None) -> Tuple[Any, Any]:
         """Create an agent and thread based on the agent configuration."""
         with tracer.start_as_current_span("create_agent") as span:
             span.set_attribute("agent_id", agent_config.id)
@@ -36,7 +36,7 @@ class AgentFactory:
             # Create the appropriate agent type
             if agent_config.agentType == "AzureAIAgent":
                 return await AgentFactory._create_azure_ai_agent(
-                    kernel, agent_config, kernel_settings, plugins
+                    kernel, agent_config, kernel_settings, plugins, thread_id
                 )
             else:
                 # Default to ChatCompletionAgent
@@ -94,7 +94,8 @@ class AgentFactory:
         kernel: Kernel, 
         agent_config: Agent, 
         kernel_settings: PromptExecutionSettings, 
-        plugins: List[Any]
+        plugins: List[Any],
+        thread_id: str = None
     ) -> Tuple[AzureAIAgent, Optional[AzureAIAgentThread]]:
         """Create an AzureAIAgent."""
         
@@ -136,7 +137,14 @@ class AgentFactory:
             )
             
             # Create a thread object for AzureAIAgent
-            thread: AzureAIAgentThread = AzureAIAgentThread(client=client)
+            # If thread_id is provided, use that existing thread during initialization
+            if thread_id:
+                thread = AzureAIAgentThread(client=client, thread_id=thread_id)
+                logger.info(f"Using existing thread with ID: {thread_id}")
+            else:
+                # Create a new thread
+                thread = AzureAIAgentThread(client=client)
+                logger.info(f"Created new thread for AzureAIAgent")
             
             return azure_ai_agent, thread
             

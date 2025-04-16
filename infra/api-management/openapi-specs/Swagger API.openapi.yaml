@@ -1,0 +1,259 @@
+openapi: 3.0.1
+info:
+  title: swagger-api
+  description: Exposes the OpenAPI spec for an API Endpoint
+  version: '1.0'
+servers:
+  - url: https://apim-55vh-apichat.azure-api.net/docs
+paths:
+  '/apis/{api-id}':
+    get:
+      summary: OpenAPI Spec
+      description: Returns the OpenAPI specification for a given api-id
+      operationId: openapi-spec
+      parameters:
+        - name: api-id
+          in: path
+          description: Id of the API inside Azure API Management
+          required: true
+          schema:
+            type: string
+        - name: export
+          in: query
+          description: Export the API as OpenAPI Spec
+          required: true
+          schema:
+            enum:
+              - true
+            type: boolean
+            default: true
+        - name: format
+          in: query
+          description: The format to export the API in.
+          required: true
+          schema:
+            enum:
+              - openapi
+            type: string
+            default: openapi
+        - name: api-version
+          in: query
+          description: Azure Management REST API version
+          schema:
+            enum:
+              - '2022-08-01'
+            type: string
+            default: '2022-08-01'
+      responses:
+        '200':
+          description: OpenAPI spec in JSON or YAML format for a given API.
+  '/products/{product_id}/apis':
+    get:
+      summary: Product APIs
+      description: Product APIs
+      operationId: product-apis
+      parameters:
+        - name: product_id
+          in: path
+          description: ID of the Azure API Management Product
+          required: true
+          schema:
+            type: string
+        - name: api-version
+          in: query
+          description: Azure Management REST API version
+          required: true
+          schema:
+            enum:
+              - '2022-08-01'
+            type: string
+            default: '2022-08-01'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/product-apis-response'
+              example:
+                value:
+                  - id: string
+                    type: string
+                    name: string
+                    properties:
+                      displayName: string
+                      apiRevision: string
+                      description: { }
+                      subscriptionRequired: true
+                      serviceUrl: string
+                      backendId: { }
+                      path: string
+                      protocols:
+                        - string
+                      authenticationSettings: { }
+                      subscriptionKeyParameterNames: { }
+                      isCurrent: true
+                count: 0
+  '/namedValues/{named-value-id}':
+    get:
+      summary: Named Values
+      description: Returns the value for a named value in API Management.
+      operationId: named-values
+      parameters:
+        - name: named-value-id
+          in: path
+          description: Id of the named value in API Management
+          required: true
+          schema:
+            type: string
+        - name: api-version
+          in: query
+          description: Version of Azure Management REST API
+          schema:
+            enum:
+              - '2022-08-01'
+            type: string
+            default: '2022-08-01'
+      responses:
+        '200':
+          description: ''
+  /products:
+    get:
+      summary: Products
+      operationId: products
+      parameters:
+        - name: api-version
+          in: query
+          description: Version of Azure Management Rest API Endpoint
+          required: true
+          schema:
+            enum:
+              - '2022-08-01'
+            type: string
+            default: '2022-08-01'
+        - name: $filter
+          in: query
+          description: 'Odata filter. (i.e. contains(name,''agent'')'
+          required: true
+          schema:
+            enum:
+              - 'contains(name,''agent'')'
+            type: string
+            default: 'contains(name,''agent'')'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/apim-products-response'
+              example:
+                value:
+                  - id: /subscriptions/7541bc3d-10b0-4ed6-a6cd-52daf5eb8719/resourceGroups/apichat-rg/providers/Microsoft.ApiManagement/service/apim-55vh-apichat/products/generic-chat-agent
+                    type: Microsoft.ApiManagement/service/products
+                    name: generic-chat-agent
+                    properties:
+                      displayName: Generic Chat Agent
+                      description: This product has all available APIs enabled for the Chat Agent
+                      terms: API Chat Product Terms
+                      subscriptionRequired: true
+                      approvalRequired: false
+                      subscriptionsLimit: 1
+                      state: published
+                count: 1
+components:
+  schemas:
+    product-apis-response:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            required:
+              - id
+              - type
+              - name
+              - properties
+            type: object
+            properties:
+              id:
+                type: string
+              type:
+                type: string
+              name:
+                type: string
+              properties:
+                type: object
+                properties:
+                  displayName:
+                    type: string
+                  apiRevision:
+                    type: string
+                  description: { }
+                  subscriptionRequired:
+                    type: boolean
+                  serviceUrl:
+                    type: string
+                  backendId: { }
+                  path:
+                    type: string
+                  protocols:
+                    type: array
+                    items:
+                      type: string
+                  authenticationSettings: { }
+                  subscriptionKeyParameterNames: { }
+                  isCurrent:
+                    type: boolean
+        count:
+          type: integer
+    apim-products-response:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            required:
+              - id
+              - type
+              - name
+              - properties
+            type: object
+            properties:
+              id:
+                type: string
+              type:
+                type: string
+              name:
+                type: string
+              properties:
+                type: object
+                properties:
+                  displayName:
+                    type: string
+                  description:
+                    type: string
+                  terms:
+                    type: string
+                  subscriptionRequired:
+                    type: boolean
+                  approvalRequired:
+                    type: boolean
+                  subscriptionsLimit:
+                    type: integer
+                  state:
+                    type: string
+        count:
+          type: integer
+  securitySchemes:
+    apiKeyHeader:
+      type: apiKey
+      name: Ocp-Apim-Subscription-Key
+      in: header
+    apiKeyQuery:
+      type: apiKey
+      name: subscription-key
+      in: query
+security:
+  - apiKeyHeader: [ ]
+  - apiKeyQuery: [ ]

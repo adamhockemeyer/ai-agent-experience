@@ -1,0 +1,676 @@
+openapi: 3.0.1
+info:
+  title: Adventureworks Products
+  version: '1.0'
+servers:
+  - url: https://apim-55vh-apichat.azure-api.net/products
+paths:
+  '/product/ProductID/{ProductID}':
+    get:
+      tags:
+        - product
+      summary: '/product/ProductID/{ProductID} - GET'
+      description: Returns an entity.
+      operationId: get_product_by_productid
+      parameters:
+        - name: ProductID
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: $select
+          in: query
+          description: A comma separated list of fields to return in the response.
+          schema:
+            type: string
+        - name: $filter
+          in: query
+          description: An OData expression (an expression that returns a boolean value) using the entity's fields to retrieve a subset of the results.
+          schema:
+            type: string
+        - name: $orderby
+          in: query
+          description: 'Uses a comma-separated list of expressions to sort response items. Add ''desc'' for descending order, otherwise it''s ascending by default.'
+          schema:
+            type: string
+        - name: $first
+          in: query
+          description: An integer value that specifies the number of items to return. Default is 100.
+          schema:
+            type: integer
+        - name: $after
+          in: query
+          description: An opaque string that specifies the cursor position after which results should be returned.
+          schema:
+            type: string
+        - name: X-MS-API-ROLE
+          in: header
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses:
+        '400':
+          description: BadRequest
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: NotFound
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/product'
+              example:
+                value:
+                  - ProductID: 0
+                    Name: string
+                    ProductNumber: string
+                    Color: string
+                    StandardCost: 0
+                    ListPrice: 0
+                    Size: string
+                    Weight: 0
+                    ProductCategoryID: 0
+                    ProductModelID: 0
+                    SellStartDate: string
+                    SellEndDate: string
+                    DiscontinuedDate: string
+                    ThumbNailPhoto: string
+                    ThumbnailPhotoFileName: string
+                    rowguid: string
+                    ModifiedDate: string
+    put:
+      tags:
+        - product
+      summary: '/product/ProductID/{ProductID} - PUT'
+      description: Replace or create entity.
+      operationId: put_product_by_productid
+      parameters:
+        - name: ProductID
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: X-MS-API-ROLE
+          in: header
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/product_NoPK'
+            example:
+              Name: string
+              ProductNumber: string
+              Color: string
+              StandardCost: 0
+              ListPrice: 0
+              Size: string
+              Weight: 0
+              ProductCategoryID: 0
+              ProductModelID: 0
+              SellStartDate: string
+              SellEndDate: string
+              DiscontinuedDate: string
+              ThumbNailPhoto: string
+              ThumbnailPhotoFileName: string
+              rowguid: string
+              ModifiedDate: string
+      responses:
+        '400':
+          description: BadRequest
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: NotFound
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/product'
+              example:
+                value:
+                  - ProductID: 0
+                    Name: string
+                    ProductNumber: string
+                    Color: string
+                    StandardCost: 0
+                    ListPrice: 0
+                    Size: string
+                    Weight: 0
+                    ProductCategoryID: 0
+                    ProductModelID: 0
+                    SellStartDate: string
+                    SellEndDate: string
+                    DiscontinuedDate: string
+                    ThumbNailPhoto: string
+                    ThumbnailPhotoFileName: string
+                    rowguid: string
+                    ModifiedDate: string
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/product'
+              example:
+                value:
+                  - ProductID: 0
+                    Name: string
+                    ProductNumber: string
+                    Color: string
+                    StandardCost: 0
+                    ListPrice: 0
+                    Size: string
+                    Weight: 0
+                    ProductCategoryID: 0
+                    ProductModelID: 0
+                    SellStartDate: string
+                    SellEndDate: string
+                    DiscontinuedDate: string
+                    ThumbNailPhoto: string
+                    ThumbnailPhotoFileName: string
+                    rowguid: string
+                    ModifiedDate: string
+    patch:
+      tags:
+        - product
+      summary: '/product/ProductID/{ProductID} - PATCH'
+      description: Update or create entity.
+      operationId: patch_product_by_productid
+      parameters:
+        - name: ProductID
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: X-MS-API-ROLE
+          in: header
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/product_NoPK'
+            example:
+              Name: string
+              ProductNumber: string
+              Color: string
+              StandardCost: 0
+              ListPrice: 0
+              Size: string
+              Weight: 0
+              ProductCategoryID: 0
+              ProductModelID: 0
+              SellStartDate: string
+              SellEndDate: string
+              DiscontinuedDate: string
+              ThumbNailPhoto: string
+              ThumbnailPhotoFileName: string
+              rowguid: string
+              ModifiedDate: string
+      responses:
+        '400':
+          description: BadRequest
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: NotFound
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/product'
+              example:
+                value:
+                  - ProductID: 0
+                    Name: string
+                    ProductNumber: string
+                    Color: string
+                    StandardCost: 0
+                    ListPrice: 0
+                    Size: string
+                    Weight: 0
+                    ProductCategoryID: 0
+                    ProductModelID: 0
+                    SellStartDate: string
+                    SellEndDate: string
+                    DiscontinuedDate: string
+                    ThumbNailPhoto: string
+                    ThumbnailPhotoFileName: string
+                    rowguid: string
+                    ModifiedDate: string
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/product'
+              example:
+                value:
+                  - ProductID: 0
+                    Name: string
+                    ProductNumber: string
+                    Color: string
+                    StandardCost: 0
+                    ListPrice: 0
+                    Size: string
+                    Weight: 0
+                    ProductCategoryID: 0
+                    ProductModelID: 0
+                    SellStartDate: string
+                    SellEndDate: string
+                    DiscontinuedDate: string
+                    ThumbNailPhoto: string
+                    ThumbnailPhotoFileName: string
+                    rowguid: string
+                    ModifiedDate: string
+    delete:
+      tags:
+        - product
+      summary: '/product/ProductID/{ProductID} - DELETE'
+      description: Delete entity.
+      operationId: delete_product_by_productid
+      parameters:
+        - name: ProductID
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: X-MS-API-ROLE
+          in: header
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses:
+        '400':
+          description: BadRequest
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: NotFound
+        '204':
+          description: NoContent
+  /product:
+    get:
+      tags:
+        - product
+      summary: /product - GET
+      description: Returns entities.
+      operationId: get_product
+      parameters:
+        - name: $select
+          in: query
+          description: A comma separated list of fields to return in the response.
+          schema:
+            type: string
+        - name: $filter
+          in: query
+          description: An OData expression (an expression that returns a boolean value) using the entity's fields to retrieve a subset of the results.
+          schema:
+            type: string
+        - name: $orderby
+          in: query
+          description: 'Uses a comma-separated list of expressions to sort response items. Add ''desc'' for descending order, otherwise it''s ascending by default.'
+          schema:
+            type: string
+        - name: $first
+          in: query
+          description: An integer value that specifies the number of items to return. Default is 100.
+          schema:
+            type: integer
+        - name: $after
+          in: query
+          description: An opaque string that specifies the cursor position after which results should be returned.
+          schema:
+            type: string
+        - name: X-MS-API-ROLE
+          in: header
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses:
+        '400':
+          description: BadRequest
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: NotFound
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/product'
+                  nextLink:
+                    type: string
+              example:
+                value:
+                  - ProductID: 0
+                    Name: string
+                    ProductNumber: string
+                    Color: string
+                    StandardCost: 0
+                    ListPrice: 0
+                    Size: string
+                    Weight: 0
+                    ProductCategoryID: 0
+                    ProductModelID: 0
+                    SellStartDate: string
+                    SellEndDate: string
+                    DiscontinuedDate: string
+                    ThumbNailPhoto: string
+                    ThumbnailPhotoFileName: string
+                    rowguid: string
+                    ModifiedDate: string
+                nextLink: string
+    post:
+      tags:
+        - product
+      summary: /product - POST
+      description: Create entity.
+      operationId: post_product
+      parameters:
+        - name: X-MS-API-ROLE
+          in: header
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/product_NoAutoPK'
+            example:
+              Name: string
+              ProductNumber: string
+              Color: string
+              StandardCost: 0
+              ListPrice: 0
+              Size: string
+              Weight: 0
+              ProductCategoryID: 0
+              ProductModelID: 0
+              SellStartDate: string
+              SellEndDate: string
+              DiscontinuedDate: string
+              ThumbNailPhoto: string
+              ThumbnailPhotoFileName: string
+              rowguid: string
+              ModifiedDate: string
+      responses:
+        '400':
+          description: BadRequest
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: NotFound
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/product'
+              example:
+                value:
+                  - ProductID: 0
+                    Name: string
+                    ProductNumber: string
+                    Color: string
+                    StandardCost: 0
+                    ListPrice: 0
+                    Size: string
+                    Weight: 0
+                    ProductCategoryID: 0
+                    ProductModelID: 0
+                    SellStartDate: string
+                    SellEndDate: string
+                    DiscontinuedDate: string
+                    ThumbNailPhoto: string
+                    ThumbnailPhotoFileName: string
+                    rowguid: string
+                    ModifiedDate: string
+        '409':
+          description: Conflict
+components:
+  schemas:
+    product:
+      type: object
+      properties:
+        ProductID:
+          type: number
+          format: ''
+        Name:
+          type: string
+          format: ''
+        ProductNumber:
+          type: string
+          format: ''
+        Color:
+          type: string
+          format: ''
+        StandardCost:
+          type: number
+          format: ''
+        ListPrice:
+          type: number
+          format: ''
+        Size:
+          type: string
+          format: ''
+        Weight:
+          type: number
+          format: ''
+        ProductCategoryID:
+          type: number
+          format: ''
+        ProductModelID:
+          type: number
+          format: ''
+        SellStartDate:
+          type: string
+          format: ''
+        SellEndDate:
+          type: string
+          format: ''
+        DiscontinuedDate:
+          type: string
+          format: ''
+        ThumbNailPhoto:
+          type: string
+          format: ''
+        ThumbnailPhotoFileName:
+          type: string
+          format: ''
+        rowguid:
+          type: string
+          format: ''
+        ModifiedDate:
+          type: string
+          format: ''
+    product_NoAutoPK:
+      type: object
+      properties:
+        Name:
+          type: string
+          format: ''
+        ProductNumber:
+          type: string
+          format: ''
+        Color:
+          type: string
+          format: ''
+        StandardCost:
+          type: number
+          format: ''
+        ListPrice:
+          type: number
+          format: ''
+        Size:
+          type: string
+          format: ''
+        Weight:
+          type: number
+          format: ''
+        ProductCategoryID:
+          type: number
+          format: ''
+        ProductModelID:
+          type: number
+          format: ''
+        SellStartDate:
+          type: string
+          format: ''
+        SellEndDate:
+          type: string
+          format: ''
+        DiscontinuedDate:
+          type: string
+          format: ''
+        ThumbNailPhoto:
+          type: string
+          format: ''
+        ThumbnailPhotoFileName:
+          type: string
+          format: ''
+        rowguid:
+          type: string
+          format: ''
+        ModifiedDate:
+          type: string
+          format: ''
+    product_NoPK:
+      type: object
+      properties:
+        Name:
+          type: string
+          format: ''
+        ProductNumber:
+          type: string
+          format: ''
+        Color:
+          type: string
+          format: ''
+        StandardCost:
+          type: number
+          format: ''
+        ListPrice:
+          type: number
+          format: ''
+        Size:
+          type: string
+          format: ''
+        Weight:
+          type: number
+          format: ''
+        ProductCategoryID:
+          type: number
+          format: ''
+        ProductModelID:
+          type: number
+          format: ''
+        SellStartDate:
+          type: string
+          format: ''
+        SellEndDate:
+          type: string
+          format: ''
+        DiscontinuedDate:
+          type: string
+          format: ''
+        ThumbNailPhoto:
+          type: string
+          format: ''
+        ThumbnailPhotoFileName:
+          type: string
+          format: ''
+        rowguid:
+          type: string
+          format: ''
+        ModifiedDate:
+          type: string
+          format: ''
+  securitySchemes:
+    apiKeyHeader:
+      type: apiKey
+      name: Ocp-Apim-Subscription-Key
+      in: header
+    apiKeyQuery:
+      type: apiKey
+      name: subscription-key
+      in: query
+security:
+  - apiKeyHeader: [ ]
+  - apiKeyQuery: [ ]

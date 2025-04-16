@@ -9,6 +9,25 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
+class SerializableThread:
+    """
+    A serializable wrapper for threads that can't be directly pickled.
+    Used primarily for AzureAIAgentThread which contains non-picklable components.
+    """
+    
+    def __init__(self, thread_type: str, thread_id: str, metadata: dict = None):
+        """
+        Initialize a serializable thread wrapper.
+        
+        Args:
+            thread_type: The type of thread this represents (e.g., "AzureAIAgentThread")
+            thread_id: The thread ID used by the service
+            metadata: Optional metadata to store with the thread
+        """
+        self.thread_type = thread_type
+        self.thread_id = thread_id
+        self.metadata = metadata or {}
+
 # Global storage that persists across instances
 _GLOBAL_MEMORY_STORAGE = {}
 
@@ -44,33 +63,64 @@ class InMemoryThreadStorage(ThreadStorage[T]):
         
     async def save(self, session_id: str, thread: T) -> None:
         """Save thread to in-memory storage."""
-        if self.use_serialization:
-            # Use base64 encoding for consistency with other storage methods
-            serialized_bytes = pickle.dumps(thread)
-            serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
-            self._storage[session_id] = serialized_thread
-        else:
-            # Store directly for better performance in development
-            self._storage[session_id] = thread
+        try:
+            # Special handling for AzureAIAgentThread
+            if hasattr(thread, '__class__') and thread.__class__.__name__ == "AzureAIAgentThread":
+                thread_id = getattr(thread, "id", None)
+                if thread_id:
+                    serializable = SerializableThread(
+                        thread_type="AzureAIAgentThread",
+                        thread_id=thread_id
+                    )
+                    # Use serialization for the wrapper
+                    serialized_bytes = pickle.dumps(serializable)
+                    serialized_thread = base64.b64encode(serialized_bytes).decode('ascii') if self.use_serialization else serializable
+                    self._storage[session_id] = serialized_thread
+                    logger.debug(f"Saved AzureAIAgentThread ID {thread_id} for session {session_id} to memory")
+                    return
+                else:
+                    logger.warning(f"AzureAIAgentThread has no ID, cannot save for session {session_id}")
+                    return
             
-        logger.debug(f"Saved thread for session {session_id} to memory")
+            # Regular serialization for other thread types
+            if self.use_serialization:
+                # Use base64 encoding for consistency with other storage methods
+                serialized_bytes = pickle.dumps(thread)
+                serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
+                self._storage[session_id] = serialized_thread
+            else:
+                # Store directly for better performance in development
+                self._storage[session_id] = thread
+                
+            logger.debug(f"Saved thread for session {session_id} to memory")
+        except Exception as e:
+            logger.error(f"Error saving thread to memory: {str(e)}", exc_info=True)
         
     async def load(self, session_id: str) -> Optional[T]:
         """Load thread from in-memory storage."""
         data = self._storage.get(session_id)
         
         if data:
-            if self.use_serialization:
-                # Deserialize with base64 decoding
-                binary_data = base64.b64decode(data)
-                thread = pickle.loads(binary_data)
-            else:
-                thread = data
+            try:
+                if self.use_serialization:
+                    # Deserialize with base64 decoding
+                    binary_data = base64.b64decode(data)
+                    thread = pickle.loads(binary_data)
+                else:
+                    thread = data
+                    
+                logger.debug(f"Loaded thread for session {session_id} from memory")
+                return thread
+            except Exception as e:
+                logger.error(f"Error loading thread from memory: {str(e)}", exc_info=True)
                 
-            logger.debug(f"Loaded thread for session {session_id} from memory")
-            return thread
-            
         return None
+
+    async def delete(self, session_id: str) -> None:
+        """Delete thread from storage."""
+        if session_id in self._storage:
+            del self._storage[session_id]
+            logger.debug(f"Deleted thread for session {session_id} from memory")
 
 
 class RedisThreadStorage(ThreadStorage[T]):
@@ -92,6 +142,27 @@ class RedisThreadStorage(ThreadStorage[T]):
         """Save thread to Redis."""
         try:
             client = await self._get_client()
+            
+            # Special handling for AzureAIAgentThread
+            if hasattr(thread, '__class__') and thread.__class__.__name__ == "AzureAIAgentThread":
+                thread_id = getattr(thread, "id", None)
+                if thread_id:
+                    serializable = SerializableThread(
+                        thread_type="AzureAIAgentThread",
+                        thread_id=thread_id
+                    )
+                    # Serialize the wrapper instead of the thread
+                    serialized_bytes = pickle.dumps(serializable)
+                    serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
+                    
+                    key = f"thread:{session_id}"
+                    await client.set(key, serialized_thread, ex=self.ttl_seconds)
+                    logger.info(f"Saved AzureAIAgentThread ID {thread_id} for session {session_id} to Redis")
+                    return
+                else:
+                    logger.warning(f"AzureAIAgentThread has no ID, cannot save for session {session_id}")
+                    return
+            
             # Use base64 encoding for consistent serialization
             serialized_bytes = pickle.dumps(thread)
             serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
@@ -184,6 +255,34 @@ class CosmosDbThreadStorage(ThreadStorage[T]):
         """Save thread to Cosmos DB."""
         try:
             container = await self._get_container()
+            
+            # Special handling for AzureAIAgentThread
+            if hasattr(thread, '__class__') and thread.__class__.__name__ == "AzureAIAgentThread":
+                thread_id = getattr(thread, "id", None)
+                if thread_id:
+                    serializable = SerializableThread(
+                        thread_type="AzureAIAgentThread",
+                        thread_id=thread_id
+                    )
+                    # Serialize the wrapper instead of the thread
+                    serialized_bytes = pickle.dumps(serializable)
+                    serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
+                    
+                    # Create document with configurable partition key
+                    document = {
+                        'id': session_id,
+                        self.partition_key: session_id,
+                        'thread': serialized_thread,
+                        '_ttl': self.ttl_seconds
+                    }
+                    
+                    # Upsert the document
+                    await container.upsert_item(document)
+                    logger.info(f"Saved AzureAIAgentThread ID {thread_id} for session {session_id} to Cosmos DB")
+                    return
+                else:
+                    logger.warning(f"AzureAIAgentThread has no ID, cannot save for session {session_id}")
+                    return
             
             # Serialize the thread using base64 encoding for better compatibility
             serialized_bytes = pickle.dumps(thread)
