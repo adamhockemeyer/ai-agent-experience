@@ -1,8 +1,6 @@
 param name string
 param tags object = {}
 param containerName string = 'documents'
-@description('UTC timestamp used to create distinct deployment scripts for each deployment')
-param utcValue string = utcNow()
 
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   sku: {
@@ -64,3 +62,4 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
 
 output storageAccountName string = storage.name
 output containerName string = container.name
+output id string = storage.id

@@ -19,3 +19,4 @@ output resourceId string = applicationInsights.id
 output name string = name
 output instrumentationKey string = applicationInsights.properties.InstrumentationKey
 output connectionString string = applicationInsights.properties.ConnectionString
+output id string = applicationInsights.id

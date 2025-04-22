@@ -2,7 +2,44 @@
 ### AI Agents Experience
 ---
 
+## Deployment
 
+Requirements
+- [Azure Developer CLI](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+
+
+1. Create an Azure Resource Group for this project (In the portal or CLI).
+
+    ```shell
+    az group create --name aiagents-rg --location eastus
+    ```
+
+1.  Initialize the Azure Developer CLI
+
+    ```shell
+    azd init
+    ```
+    You will be prompted to enter an environment name (i.e. `dev`)
+
+1. Authenticate Azure Developer CLI
+
+    ```shell
+    azd auth login [--tenant-id]
+    ```
+
+1.  Set the Azure resource group you wish to deploy to
+
+    ```shell
+    azd env set AZURE_RESOURCE_GROUP <resource-group-name>
+    ```
+
+1.  Run the following command to build, deploy & configure the image
+
+    ```shell
+    azd up
+    ```
+
+## Notes
 
 
 

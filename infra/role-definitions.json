@@ -3,5 +3,8 @@
     "Azure Maps Data Reader": "423170ca-a8f6-4b0f-8487-9e4eb8f49bfa",
     "API Management Service Reader Role": "71522526-b88f-4d52-b57f-d31fc3546d0d",
     "Azure ContainerApps Session Executor": "0fb8eba5-a2bb-4abe-b1c1-49dfad359bb0",
-    "Contributor": "b24988ac-6180-42a0-ab88-20f7382dd24c"
+    "Contributor": "b24988ac-6180-42a0-ab88-20f7382dd24c",
+    "App Configuration Data Owner": "5ae67dd6-50cb-40e7-96ff-dc2bfa4b606b",
+    "Key Vault Secrets User": "4633458b-17de-408a-b874-0445c86b69e6",
+    "Key Vault Secrets Officer":"b86a8fe4-44ce-4948-aee5-eccb2c155cd7"
 }

@@ -10,6 +10,9 @@ param databaseName string
 @description('The names of the collections within the database.')
 param collectionNames array
 
+@description('The the partition key for the collections.')
+param partitionKey string = 'partitionKey'
+
 param tags object = {}
 
 resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-preview' = {
@@ -47,7 +50,7 @@ resource cosmosDbContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/
     resource: {
       id: collection
       partitionKey: {
-        paths: ['/partitionKey']
+        paths: ['/${partitionKey}']
         kind: 'Hash'
       }
     }
@@ -62,3 +65,5 @@ resource cosmosDbContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/
 output cosmosDbAccountName string = cosmosDbAccount.name
 output cosmosDbDatabaseName string = cosmosDbDatabase.name
 output cosmosDbContainerNames array = [for collection in collectionNames: collection]
+output cosmosDbEndpoint string = cosmosDbAccount.properties.documentEndpoint
+output cosmosDbPartitionKey string = partitionKey

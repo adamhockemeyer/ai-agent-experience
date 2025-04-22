@@ -2,9 +2,9 @@ from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 
 class Settings(BaseSettings):
-    azure_openai_api_key: str
-    azure_openai_endpoint: str
-    azure_ai_api_key: str
+    azure_openai_api_key: str = ""
+    azure_openai_endpoint: str = ""
+    azure_ai_api_key: str = ""
     azure_ai_endpoint: str
     azure_application_insights_connection_string: str = ""
     azure_app_config_endpoint: str 
@@ -17,9 +17,9 @@ class Settings(BaseSettings):
     redis_connection_string: str = ""
     cosmos_db_connection_string: str = ""
     cosmos_db_endpoint: str = ""
-    cosmos_db_database_name: str = "ConversationThreads"
-    cosmos_db_container_name: str = "Threads"
-    cosmos_db_partition_key: str = "sessionId"  # Add this line for the partition key name
+    cosmos_db_database_name: str = "aiagents-db"
+    cosmos_db_container_name: str = "chatHistory"
+    cosmos_db_partition_key: str = "partitionKey"  # Add this line for the partition key name
     thread_ttl_seconds: int = 86400  # 24 hours default TTL
 
     # MCP plugin configuration

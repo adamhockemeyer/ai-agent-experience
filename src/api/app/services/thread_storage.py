@@ -198,8 +198,8 @@ class CosmosDbThreadStorage(ThreadStorage[T]):
     
     def __init__(self, connection_string: str = None, 
                  endpoint: str = None, 
-                 database_name: str = "ConversationThreads",
-                 container_name: str = "Threads",
+                 database_name: str = "aiagents-db",
+                 container_name: str = "chatHistory",
                  partition_key: str = "sessionId",  # Add default parameter
                  ttl_seconds: int = 86400):
         self.connection_string = connection_string

@@ -6,9 +6,10 @@ param roleAssignments array = []
 resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   name: name
   location: location
-  kind: 'OpenAI'
+  kind: 'AIServices'
   properties: {
     customSubDomainName: name
+    publicNetworkAccess: 'Enabled'
   }
   sku: {
     name: 'S0'
@@ -20,7 +21,7 @@ resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2024-10-
 }
 
 resource roleAssignmentsResource 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
-  for roleAssignment in roleAssignments: if(length(roleAssignment) > 0 ) {
+  for roleAssignment in roleAssignments: if (length(roleAssignment) > 0) {
     name: guid(roleAssignment.principalId, roleAssignment.roleDefinitionId, cognitiveServicesAccount.id)
     scope: cognitiveServicesAccount
     properties: {
@@ -34,3 +35,4 @@ resource roleAssignmentsResource 'Microsoft.Authorization/roleAssignments@2022-0
 output resourceId string = cognitiveServicesAccount.id
 output endpoint string = cognitiveServicesAccount.properties.endpoint
 output name string = cognitiveServicesAccount.name
+output kind string = cognitiveServicesAccount.kind

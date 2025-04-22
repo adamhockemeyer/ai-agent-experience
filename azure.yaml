@@ -1,0 +1,14 @@
+name: aiagents
+services:  
+  api:
+    project: ./src/api
+    language: py
+    host: containerapp
+    docker:
+      remoteBuild: true
+  web:
+    project: ./src/frontend
+    language: ts
+    host: containerapp
+    docker:
+      remoteBuild: true

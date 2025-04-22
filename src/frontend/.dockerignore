@@ -1,0 +1,17 @@
+# Frontend .dockerignore
+node_modules
+app/node_modules
+.next
+app/.next
+out
+app/out
+.git
+.github
+.vscode
+*.log
+*.md
+!README.md
+.env*
+app/.env*
+!.env.example
+!app/.env.example

@@ -1,33 +1,82 @@
-# FastAPI Template
+# Backend API
 
-This sample repo contains the recommended structure for a Python FastAPI project. In this sample, we use `fastapi` to build a web application and the `pytest` to run tests.
+This is a Python FastAPI application that serves as the backend for the AI Agents demo environment. It provides chat API endpoints that interact with Azure OpenAI services and leverages Semantic Kernel to create dynamic agents based on configuration stored in Azure App Configuration.
 
-For a more in-depth tutorial, see our [Fast API tutorial](https://code.visualstudio.com/docs/python/tutorial-fastapi).
+## Environment Variables
 
-The code in this repo aims to follow Python style guidelines as outlined in [PEP 8](https://peps.python.org/pep-0008/).
+The following environment variables are required to run the backend API:
 
-## Set up instructions
+| Variable Name | Description | Required |
+|---------------|-------------|----------|
+| `AZURE_OPENAI_API_KEY` | API key for Azure OpenAI service | No* |
+| `AZURE_OPENAI_ENDPOINT` | Endpoint URL for Azure OpenAI service | Yes |
+| `AZURE_AI_API_KEY` | API key for Azure AI service | No* |
+| `AZURE_AI_ENDPOINT` | Endpoint URL for Azure AI service | Yes |
+| `AZURE_APP_CONFIG_ENDPOINT` | Endpoint URL for Azure App Configuration | Yes** |
+| `AZURE_APP_CONFIG_CONNECTION_STRING` | Connection string for Azure App Configuration | No*** |
+| `AZURE_APPLICATION_INSIGHTS_CONNECTION_STRING` | Connection string for Azure Application Insights telemetry | No |
+| `THREAD_STORAGE_TYPE` | Storage type for conversation threads: "memory" or "cosmosdb" | No (defaults to "memory") |
+| `COSMOS_DB_ENDPOINT` | Endpoint for CosmosDB | Only if THREAD_STORAGE_TYPE="cosmosdb" |
+| `COSMOS_DB_CONNECTION_STRING` | Connection string for CosmosDB | No**** |
+| `COSMOS_DB_DATABASE_NAME` | Database name in CosmosDB | No (defaults to "aiagents-db") |
+| `COSMOS_DB_CONTAINER_NAME` | Container name in CosmosDB | No (defaults to "chatHistory") |
+| `COSMOS_DB_PARTITION_KEY` | Partition Key in CosmosDB | No (defaults to "partitionKey") |
+| `MCP_ENABLE_PLUGINS` | Enable Model Context Protocol plugins | No (defaults to true) |
+| `SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE` | Enable OpenTelemetry diagnostics for GenAI content | No (defaults to false) |
 
-This sample makes use of Dev Containers, in order to leverage this setup, make sure you have [Docker installed](https://www.docker.com/products/docker-desktop).
+\* If API key is not provided, DefaultAzureCredential will be used for authentication.  
+\** Either `AZURE_APP_CONFIG_ENDPOINT` or `AZURE_APP_CONFIG_CONNECTION_STRING` must be provided.  
+\*** Required only if `AZURE_APP_CONFIG_ENDPOINT` is not set.  
+\**** If not provided, DefaultAzureCredential will be used with the endpoint for authentication.
 
-To successfully run this example, we recommend the following VS Code extensions:
+## Running the Application
 
-- [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
-- [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy)
-- [Pylance](https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-pylance) 
+### Local Development
 
-In addition to these extension there a few settings that are also useful to enable. You can enable to following settings by opening the Settings editor (`Ctrl+,`) and searching for the following settings:
+1. Create and activate a virtual environment:
+   ```
+   cd src/api
+   python -m venv .venv
+   
+   # On Windows
+   .venv\Scripts\activate
+   
+   # On Linux/Mac
+   source .venv/bin/activate
+   ```
 
-- Python > Analysis > **Type Checking Mode** : `basic`
-- Python > Analysis > Inlay Hints: **Function Return Types** : `enable`
-- Python > Analysis > Inlay Hints: **Variable Types** : `enable`
+2. Create a `.env` file in the `src/api` directory with the required environment variables.
 
-## Running the sample
-- Open the template folder in VS Code (**File** > **Open Folder...**)
-- Open the Command Palette in VS Code (**View > Command Palette...**) and run the **Dev Container: Reopen in Container** command.
-- Run the app using the Run and Debug view or by pressing `F5`
-- `Ctrl + click` on the URL that shows up on the terminal to open the running application 
-- Test the API functionality by navigating to `/docs` URL to view the Swagger UI
-- Configure your Python test in the Test Panel or by triggering the **Python: Configure Tests** command from the Command Palette
-- Run tests in the Test Panel or by clicking the Play Button next to the individual tests in the `test_main.py` file
+3. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   pip install -r dev-requirements.txt  # For development tools
+   ```
+
+4. Start the development server:
+   ```
+   uvicorn app.main:app --reload --env-file .env
+   ```
+
+5. Access the API documentation at [http://localhost:8000/docs](http://localhost:8000/docs)
+
+### Docker Container
+
+The application can be run as a Docker container:
+
+```
+docker build -t ai-agents-api -f src/api/Dockerfile .
+docker run -p 80:80 \
+  -e AZURE_OPENAI_ENDPOINT=your-endpoint \
+  -e AZURE_AI_ENDPOINT=your-endpoint \
+  -e AZURE_APP_CONFIG_ENDPOINT=your-endpoint \
+  ai-agents-api
+```
+
+## API Endpoints
+
+The main API endpoints include:
+
+- `POST /api/chat` - Send a message to a chat agent
+
+For complete API documentation, check the Swagger UI at `/docs` when the server is running.

@@ -2,8 +2,15 @@
 @maxLength(64)
 @description('Name of the the environment')
 param environmentName string
-param prefix string = '${substring(uniqueString(resourceGroup().id),0,4)}-apichat'
-param region string = resourceGroup().location
+
+@description('Azure region where resources should be deployed')
+param location string
+
+param prefix string = '${substring(uniqueString(resourceGroup().id),0,4)}-aiagents'
+
+@description('Array of OpenAI model deployments to create. If empty, default models will be used.')
+param openAIDeployments array = []
+
 param commonTags object = {
   created_by: 'bicep'
   project: 'API Chat'
@@ -13,14 +20,13 @@ param apimPublisherEmail string = 'user@company.com'
 param apiAppExists bool = false
 param webAppExists bool = false
 param azureMapsLocation string
-param deploySQLServer bool = true
 
 var sharedRoleDefinitions = loadJsonContent('./role-definitions.json')
 
 module logAnalytics 'logs/log-analytics.bicep' = {
   name: '${prefix}-la'
   params: {
-    location: region
+    location: location
     name: '${prefix}-la'
     commonTags: commonTags
   }
@@ -29,7 +35,7 @@ module logAnalytics 'logs/log-analytics.bicep' = {
 module applicationInsights 'logs/application-insights.bicep' = {
   name: '${prefix}-appinsights'
   params: {
-    location: region
+    location: location
     name: '${prefix}-appinsights'
     commonTags: commonTags
     logAnalyticsWorkspaceResourceId: logAnalytics.outputs.resourceId
@@ -47,10 +53,10 @@ module storageAccount 'storage/storage.bicep' = {
 // Create multiple OpenAI Accounts to show Load Balancing in API Management
 
 module cognitiveServices1 'cognitive-services/cognitive-services-openai.bicep' = {
-  name: '${prefix}-oai-1'
+  name: '${prefix}-oai'
   params: {
-    location: region
-    name: '${prefix}-oai-1'
+    location: location
+    name: '${prefix}-oai'
     commonTags: commonTags
     roleAssignments: [
       {
@@ -65,38 +71,17 @@ module openAIDeployments1 'cognitive-services/openai-deployments.bicep' = {
   name: '${prefix}-oai-deployments-1'
   params: {
     cognitiveServicesAccountName: cognitiveServices1.outputs.name
-  }
-}
-
-module cognitiveServices2 'cognitive-services/cognitive-services-openai.bicep' = {
-  name: '${prefix}-oai-2'
-  params: {
-    location: 'Sweden Central'
-    name: '${prefix}-oai-2'
-    commonTags: commonTags
-    roleAssignments: [
-      {
-        principalId: apim.outputs.principalId
-        roleDefinitionId: sharedRoleDefinitions['Cognitive Services OpenAI User']
-      }
-    ]
-  }
-}
-
-module openAIDeployments2 'cognitive-services/openai-deployments.bicep' = {
-  name: '${prefix}-oai-deployments-2'
-  params: {
-    cognitiveServicesAccountName: cognitiveServices2.outputs.name
+    deployments: openAIDeployments
   }
 }
 
 var apimName = 'apim-${prefix}'
-var apimSubscriptionName = 'apichat-subscription'
+var apimSubscriptionName = 'aiagent-subscription'
 
 module apim 'api-management/apim.bicep' = {
   name: '${prefix}-apim'
   params: {
-    location: region
+    location: location
     name: apimName
     commonTags: commonTags
     publisherEmail: apimPublisherEmail
@@ -126,7 +111,6 @@ module apimBackendsOpenAI 'api-management/apim-backends-aoai.bicep' = {
     backendPoolName: 'openaibackendpool'
     backendNames: [
       cognitiveServices1.outputs.name
-      cognitiveServices2.outputs.name
     ]
   }
 }
@@ -215,75 +199,100 @@ module apimProduct_generic_chat_agent 'api-management/apim-product.bicep' = {
   }
 }
 
-// Generic Chat Agent Instructions
-module apimNameValue_generic_chat_agent_instructions 'api-management/apim-namevalue.bicep' = {
-  name: '${prefix}-apim-namedvalue-generic-chat-agent-instructions'
-  params: {
-    apiManagementServiceName: apim.outputs.name
-    name: '${apimProduct_generic_chat_agent.outputs.productName}-instructions'
-    displayName: '${apimProduct_generic_chat_agent.outputs.productName}-instructions'
-    value: loadTextContent('api-management/named-values/generic-chat-agent-instructions.md')
-  }
-}
-
-module apimNamedValueAdventureWorksAPI 'api-management/apim-namevalue.bicep' = {
-  name: '${prefix}-apim-namedvalue-adventureworks-service-url'
-  params: {
-    apiManagementServiceName: apimService.name
-    name: 'adventureworks-api-service-url'
-    displayName: 'Adventureworks-API-Service-URL'
-    value: '${adventureWorksDABAPIContainerApp.outputs.uri}/api'
-  }
-}
-
-module apimApisAdventureWorks 'api-management/apis/adventureworks-api.bicep' = {
-  name: '${prefix}-apim-aw-api'
-  params: {
-    serviceName: apim.outputs.name
-  }
-  dependsOn: [
-    apimNamedValueAdventureWorksAPI
-  ]
-}
-
-// Generic Chat Agent Product
-module apimProduct_field_support_agent 'api-management/apim-product.bicep' = {
-  name: '${prefix}-apim-product-field-support-agent'
-  params: {
-    apiManagementServiceName: apim.outputs.name
-    productName: 'field-support-agent'
-    productDisplayName: 'Field Support Agent'
-    productDescription: 'This product has all available APIs enabled for the Field Support Agent'
-    productTerms: 'API Chat Product Terms'
-    productApis: [
-      apimApisAdventureWorks.outputs.id
-    ]
-  }
-}
-
-// Generic Chat Agent Instructions
-module apimNameValue_field_support_agent_instructions 'api-management/apim-namevalue.bicep' = {
-  name: '${prefix}-apim-namedvalue-field-support-agent-instructions'
-  params: {
-    apiManagementServiceName: apim.outputs.name
-    name: '${apimProduct_field_support_agent.outputs.productName}-instructions'
-    displayName: '${apimProduct_field_support_agent.outputs.productName}-instructions'
-    value: loadTextContent('api-management/named-values/field-support-agent-instructions.md')
-  }
-}
-
 module cosmosDB 'cosmos-db/cosmosdb.bicep' = {
   name: '${prefix}-cosmosdb'
   params: {
-    location: 'East US2'
+    location: location
     accountName: '${prefix}-cosmosdb'
-    databaseName: 'apichat-db'
+    databaseName: 'aiagents-db'
     collectionNames: [
       'chatHistory'
     ]
+    partitionKey: 'partitionKey'
     tags: commonTags
   }
 }
+
+module appConfig 'app-configuration/app-configuration.bicep' = {
+  name: '${prefix}-appconfig'
+  params: {
+    name: '${prefix}-appconfig'
+    location: location
+    tags: commonTags
+    keyValues: [
+      // {
+      //   key: 'MyApp:Settings:BackgroundColor'
+      //   value: 'Blue'
+      //   contentType: 'text/plain'
+      // }
+      // {
+      //   key: 'MyApp:Settings:FontSize'
+      //   value: '12'
+      //   contentType: 'text/plain'
+      // }
+      // {
+      //   key: 'AgentConfig:DefaultModel'
+      //   value: openAIDeployments1.outputs.chatDeploymentName
+      //   contentType: 'text/plain'
+      // }
+      // {
+      //   key: 'AgentConfig:EmbeddingModel'
+      //   value: openAIDeployments1.outputs.embeddingDeploymentName
+      //   contentType: 'text/plain'
+      // }
+      // {
+      //   key: 'AgentConfig:AvailableModels'
+      //   value: string(openAIDeployments1.outputs.deployments)
+      //   contentType: 'application/json'
+      // }
+    ]
+    roleAssignments: [
+      {
+        principalId: userAssignedManagedIdentity.properties.principalId
+        roleDefinitionId: sharedRoleDefinitions['App Configuration Data Owner']
+      }
+    ]
+  }
+}
+
+module search 'ai-search/search.bicep' = {
+  name: '${prefix}-search'
+  params: {
+    name: '${prefix}-search'
+    location: location
+    tags: commonTags
+    sku: 'basic'
+    replicaCount: 1
+    partitionCount: 1
+    hostingMode: 'default'
+    roleAssignments: [
+      {
+        principalId: userAssignedManagedIdentity.properties.principalId
+        roleDefinitionId: sharedRoleDefinitions['Cognitive Services OpenAI User']
+      }
+    ]
+  }
+}
+
+module keyVault 'keyvault/keyvault.bicep' = {
+  name: '${prefix}-kv'
+  params: {
+    name: '${prefix}kv'
+    location: location
+    tags: commonTags
+    roleAssignments: [
+      {
+        principalId: userAssignedManagedIdentity.properties.principalId
+        roleDefinitionId: sharedRoleDefinitions['Key Vault Secrets Officer']
+      }
+      {
+        principalId: appConfig.outputs.principalId
+        roleDefinitionId: sharedRoleDefinitions['Key Vault Secrets Officer']
+      }
+    ]
+  }
+}
+
 
 module containerAppsEnvironment 'container-apps/container-app-environment.bicep' = {
   name: '${prefix}-container-app-environment'
@@ -296,13 +305,13 @@ module containerAppsEnvironment 'container-apps/container-app-environment.bicep'
 
 resource userAssignedManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${prefix}-identity'
-  location: region
+  location: location
 }
 
 module containerRegistry 'container-apps/container-registry.bicep' = {
   name: '${prefix}-container-registry'
   params: {
-    location: region
+    location: location
     name: '${replace(prefix, '-', '')}cr'
     tags: commonTags
   }
@@ -321,7 +330,7 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
   name: '${prefix}-api-container-app'
   params: {
     name: 'api'
-    location: region
+    location: location
     tags: union(commonTags, { 'azd-service-name': 'api' })
     identityType: 'UserAssigned'
     identityName: userAssignedManagedIdentity.name
@@ -332,40 +341,20 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
     containerMemory: '2.0Gi'
     env: [
       {
+        name: 'AZURE_APP_CONFIG_ENDPOINT'
+        value: appConfig.outputs.endpoint
+      }
+      {
         name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
         value: applicationInsights.outputs.connectionString
       }
       {
-        name: 'AZURE_OPENAI_API_KEY'
-        value: apimSubscription.listSecrets().primaryKey
-      }
-      {
         name: 'AZURE_OPENAI_ENDPOINT'
-        value: apim.outputs.gatewayUrl
+        value: cognitiveServices1.outputs.endpoint
       }
       {
-        name: 'AZURE_OPENAI_CHAT_DEPLOYMENT_NAME'
-        value: openAIDeployments1.outputs.chatDeploymentName
-      }
-      {
-        name: 'AZURE_OPENAI_API_VERSION'
-        value: '2024-10-01-preview'
-      }
-      {
-        name: 'AZURE_APIM_ENDPOINT'
-        value: apim.outputs.gatewayUrl
-      }
-      {
-        name: 'AZURE_APIM_SERVICE_API_VERSION'
-        value: '2022-08-01'
-      }
-      {
-        name: 'AZURE_APIM_SERVICE_SUBSCRIPTION_KEY'
-        value: apimSubscription.listSecrets().primaryKey
-      }
-      {
-        name: 'AZURE_APIM_APICHAT_SUBSCRIPTION_KEY'
-        value: apimSubscription.listSecrets().primaryKey
+        name: 'AZURE_AI_ENDPOINT'
+        value: 'https://${cognitiveServices1.outputs.name}.services.ai.azure.com/models'
       }
       {
         name: 'SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS'
@@ -376,8 +365,24 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
         value: 'true'
       }
       {
-        name: 'OTEL_SERVICE_NAME'
-        value: 'apichat-api'
+        name: 'THREAD_STORAGE_TYPE'
+        value: 'cosmosdb'
+      }
+      {
+        name: 'COSMOS_DB_ENDPOINT'
+        value: cosmosDB.outputs.cosmosDbEndpoint
+      }
+      {
+        name: 'COSMOS_DB_DATABASE_NAME'
+        value: cosmosDB.outputs.cosmosDbDatabaseName
+      }
+      {
+        name: 'COSMOS_DB_CONTAINER_NAME'
+        value: cosmosDB.outputs.cosmosDbContainerNames[0]
+      }
+      {
+        name: 'COSMOS_DB_PARTITION_KEY'
+        value: cosmosDB.outputs.cosmosDbPartitionKey
       }
     ]
     targetPort: 80
@@ -388,7 +393,7 @@ module webContainerApp 'container-apps/container-app-upsert.bicep' = {
   name: '${prefix}-web-container-app'
   params: {
     name: 'web'
-    location: region
+    location: location
     tags: union(commonTags, { 'azd-service-name': 'web' })
     identityType: 'UserAssigned'
     identityName: userAssignedManagedIdentity.name
@@ -403,91 +408,22 @@ module webContainerApp 'container-apps/container-app-upsert.bicep' = {
         value: applicationInsights.outputs.connectionString
       }
       {
-        name: 'SK_API_ENDPOINT'
+        name: 'NEXT_PUBLIC_CHAT_API_ENDPOINT'
         value: apiContainerApp.outputs.uri
       }
       {
-        name: 'GENERIC_CHAT_APIM_PRODUCT_ID'
-        value: apimProduct_generic_chat_agent.outputs.productName
+        name: 'AZURE_APPCONFIG_ENDPOINT'
+        value: appConfig.outputs.endpoint
       }
     ]
     targetPort: 3000
   }
 }
 
-module sqlServer 'sql/sql-server.bicep' = if (deploySQLServer) {
-  name: '${prefix}-sql-server'
-  params: {
-    name: '${prefix}-sql'
-    //location: region
-    location: 'eastus2'
-    tags: commonTags
-    managedIdentityName: userAssignedManagedIdentity.name
-    managedIdnetityClientId: userAssignedManagedIdentity.properties.principalId
-  }
-}
-
-module adventureWorksDABAPIContainerApp 'container-apps/container-app-upsert.bicep' = if (deploySQLServer) {
-  name: '${prefix}-aw-api-app'
-  params: {
-    name: 'adventureworks-api'
-    location: region
-    tags: union(commonTags, { 'azd-service-name': 'adventureworks-api' })
-    identityType: 'UserAssigned'
-    identityName: userAssignedManagedIdentity.name
-    exists: webAppExists
-    containerAppsEnvironmentName: containerAppsEnvironment.outputs.containerAppsEnvironmentName
-    containerRegistryName: containerRegistry.outputs.name
-    containerCpuCoreCount: '1.0'
-    containerMemory: '2.0Gi'
-    secrets: {
-      'azure-sql-connection-string': 'Server=tcp:${sqlServer.outputs.fullyQualifiedDomainName},1433;Initial Catalog=AdventureWorksLT;Authentication=Active Directory Default;'
-      'user-assigned-managed-identity-client-id': userAssignedManagedIdentity.properties.clientId
-    }
-    env: [
-      {
-        name: 'AZURE_SQL_CONNECTION_STRING'
-        secretRef: 'azure-sql-connection-string'
-      }
-      {
-        name: 'AZURE_CLIENT_ID'
-        secretRef: 'user-assigned-managed-identity-client-id'
-      }
-    ]
-    targetPort: 5000
-  }
-}
-
-module adventureWorksDABWebContainerApp 'container-apps/container-app-upsert.bicep' = if (deploySQLServer) {
-  name: '${prefix}-aw-web-app'
-  params: {
-    name: 'adventureworks-web'
-    location: region
-    tags: union(commonTags, { 'azd-service-name': 'adventureworks-web' })
-    identityType: 'UserAssigned'
-    identityName: userAssignedManagedIdentity.name
-    exists: webAppExists
-    containerAppsEnvironmentName: containerAppsEnvironment.outputs.containerAppsEnvironmentName
-    containerRegistryName: containerRegistry.outputs.name
-    containerCpuCoreCount: '1.0'
-    containerMemory: '2.0Gi'
-    secrets: {
-      'data-api-builder-endpoint': '${adventureWorksDABAPIContainerApp.outputs.uri}/graphql'
-    }
-    env: [
-      {
-        name: 'CONFIGURATION__DATAAPIBUILDER__BASEAPIURL'
-        secretRef: 'data-api-builder-endpoint'
-      }
-    ]
-    targetPort: 8080
-  }
-}
-
 module sessionPools 'container-apps/container-app-session-pools.bicep' = {
   name: '${prefix}-session-pools'
   params: {
-    location: region
+    location: location
     name: 'session-pools-${prefix}'
     tags: commonTags
     roleAssignments: [
@@ -499,12 +435,57 @@ module sessionPools 'container-apps/container-app-session-pools.bicep' = {
   }
 }
 
+// AI Foundry Hub and Project
+module aiFoundryHub 'ai-foundry/ai-foundry-hub.bicep' = {
+  name: '${prefix}-ai-foundry-hub'
+  params: {
+    location: location
+    name: '${prefix}-ai-foundry-hub'
+    tags: commonTags
+    applicationInsightsId: applicationInsights.outputs.id
+    storageAccountId: storageAccount.outputs.id
+    aiServiceKind: cognitiveServices1.outputs.kind
+    aiServicesId: cognitiveServices1.outputs.resourceId
+    aiServicesName: cognitiveServices1.outputs.name
+    aiServicesTarget: cognitiveServices1.outputs.endpoint
+    aoaiModelDeployments: openAIDeployments1.outputs.deployments
+    aiSearchId: search.outputs.id
+    aiSearchName: search.outputs.name
+
+
+    // roleAssignments: [
+    //   {
+    //     principalId: userAssignedManagedIdentity.properties.principalId
+    //     roleDefinitionId: sharedRoleDefinitions['AI Foundry Contributor']
+    //   }
+    // ]
+  }
+}
+
+module aiFoundryProject 'ai-foundry/ai-foundry-project.bicep' = {
+  name: '${prefix}-ai-foundry-project'
+  params: {
+    location: location
+    name: '${prefix}-ai-foundry-project'
+    tags: commonTags
+    hubId: aiFoundryHub.outputs.id
+    // roleAssignments: [
+    //   {
+    //     principalId: userAssignedManagedIdentity.properties.principalId
+    //     roleDefinitionId: sharedRoleDefinitions['AI Foundry Project Contributor']
+    //   }
+    // ]
+  }
+}
+
 // App outputs
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
-output AZURE_LOCATION string = region
+output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
 output API_BASE_URL string = apiContainerApp.outputs.uri
 output REACT_APP_WEB_BASE_URL string = webContainerApp.outputs.uri
 output SERVICE_API_NAME string = apiContainerApp.outputs.name
 output SERVICE_WEB_NAME string = webContainerApp.outputs.name
+output AI_FOUNDRY_HUB_NAME string = aiFoundryHub.outputs.name
+output AI_FOUNDRY_PROJECT_NAME string = aiFoundryProject.outputs.name
