@@ -13,7 +13,7 @@ param openAIDeployments array = []
 
 param commonTags object = {
   created_by: 'bicep'
-  project: 'API Chat'
+  project: 'AI Agent Experience'
   'azd-env-name': environmentName
 }
 param apimPublisherEmail string = 'user@company.com'
@@ -210,8 +210,15 @@ module cosmosDB 'cosmos-db/cosmosdb.bicep' = {
     ]
     partitionKey: 'partitionKey'
     tags: commonTags
+    sqlRoleAssignments: [
+      {
+        principalId: userAssignedManagedIdentity.properties.principalId
+        roleDefinitionId: sharedRoleDefinitions['Cosmos DB Built-in Data Contributor']
+      }
+    ]
   }
 }
+
 
 module appConfig 'app-configuration/app-configuration.bicep' = {
   name: '${prefix}-appconfig'
@@ -220,31 +227,7 @@ module appConfig 'app-configuration/app-configuration.bicep' = {
     location: location
     tags: commonTags
     keyValues: [
-      // {
-      //   key: 'MyApp:Settings:BackgroundColor'
-      //   value: 'Blue'
-      //   contentType: 'text/plain'
-      // }
-      // {
-      //   key: 'MyApp:Settings:FontSize'
-      //   value: '12'
-      //   contentType: 'text/plain'
-      // }
-      // {
-      //   key: 'AgentConfig:DefaultModel'
-      //   value: openAIDeployments1.outputs.chatDeploymentName
-      //   contentType: 'text/plain'
-      // }
-      // {
-      //   key: 'AgentConfig:EmbeddingModel'
-      //   value: openAIDeployments1.outputs.embeddingDeploymentName
-      //   contentType: 'text/plain'
-      // }
-      // {
-      //   key: 'AgentConfig:AvailableModels'
-      //   value: string(openAIDeployments1.outputs.deployments)
-      //   contentType: 'application/json'
-      // }
+      // Note: The website config is now handled by a separate module
     ]
     roleAssignments: [
       {
@@ -252,6 +235,19 @@ module appConfig 'app-configuration/app-configuration.bicep' = {
         roleDefinitionId: sharedRoleDefinitions['App Configuration Data Owner']
       }
     ]
+  }
+}
+
+// Add the website configuration to App Config after the OpenAI deployments are available
+module websiteConfig 'app-configuration/website-config.bicep' = {
+  name: '${prefix}-website-config'
+  params: {
+    appConfigName: appConfig.outputs.name
+    websiteName: 'AI Agent Experience'
+    authenticationEnabled: false
+    openAIDeployments: openAIDeployments1.outputs.deployments
+    location: location
+    identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
   }
 }
 
@@ -292,7 +288,6 @@ module keyVault 'keyvault/keyvault.bicep' = {
     ]
   }
 }
-
 
 module containerAppsEnvironment 'container-apps/container-app-environment.bicep' = {
   name: '${prefix}-container-app-environment'
@@ -340,6 +335,10 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
     containerCpuCoreCount: '1.0'
     containerMemory: '2.0Gi'
     env: [
+      {
+        name: 'AZURE_CLIENT_ID'
+        value: userAssignedManagedIdentity.properties.clientId
+      }
       {
         name: 'AZURE_APP_CONFIG_ENDPOINT'
         value: appConfig.outputs.endpoint
@@ -404,6 +403,10 @@ module webContainerApp 'container-apps/container-app-upsert.bicep' = {
     containerMemory: '2.0Gi'
     env: [
       {
+        name: 'AZURE_CLIENT_ID'
+        value: userAssignedManagedIdentity.properties.clientId
+      }
+      {
         name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
         value: applicationInsights.outputs.connectionString
       }
@@ -451,14 +454,6 @@ module aiFoundryHub 'ai-foundry/ai-foundry-hub.bicep' = {
     aoaiModelDeployments: openAIDeployments1.outputs.deployments
     aiSearchId: search.outputs.id
     aiSearchName: search.outputs.name
-
-
-    // roleAssignments: [
-    //   {
-    //     principalId: userAssignedManagedIdentity.properties.principalId
-    //     roleDefinitionId: sharedRoleDefinitions['AI Foundry Contributor']
-    //   }
-    // ]
   }
 }
 
@@ -469,12 +464,6 @@ module aiFoundryProject 'ai-foundry/ai-foundry-project.bicep' = {
     name: '${prefix}-ai-foundry-project'
     tags: commonTags
     hubId: aiFoundryHub.outputs.id
-    // roleAssignments: [
-    //   {
-    //     principalId: userAssignedManagedIdentity.properties.principalId
-    //     roleDefinitionId: sharedRoleDefinitions['AI Foundry Project Contributor']
-    //   }
-    // ]
   }
 }
 

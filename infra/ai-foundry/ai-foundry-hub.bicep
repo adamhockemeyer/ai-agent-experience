@@ -110,26 +110,14 @@ resource connection_search 'Microsoft.MachineLearningServices/workspaces/connect
   }
 }
 
-// Note - no need to make opeanai connection as linking the ai service connection is enough
-
-// resource deployments_aoai 'Microsoft.MachineLearningServices/workspaces/connections/deployments@2025-01-01-preview' = [
-//       for deployment in aoaiModelDeployments: {
-//         name: deployment.name
-//         parent: connection_aisvc
-//         properties:{ 
-//           type: 'Azure.OpenAI'
-//           model: {
-//             name: deployment.model
-//             version: deployment.version
-//           }
-//           sku: {
-//             name: deployment.sku
-//             capacity: deployment.capacity
-//           }
-//           raiPolicyName: 'Microsoft.DefaultV2'
-//         }
-//       }
-//     ]
+// resource capabilityHosts_Agent 'Microsoft.MachineLearningServices/workspaces/capabilityHosts@2025-01-01-preview' = {
+//   parent: foundryHub
+//   name: 'HubAgents'
+//   properties: {
+//     capabilityHostKind: 'Agents'
+//     aiServicesConnections: [connection_aisvc.name]
+//   }
+// }
 
 @description('This module assigns the specified role to the AI Foundry Hub resource')
 module roleAssignment '../auth/role-assignment.bicep' = [

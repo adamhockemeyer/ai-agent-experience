@@ -24,7 +24,7 @@ export class ConfigFactory {
         console.log(
           `Creating Azure App Config with endpoint: ${process.env.AZURE_APPCONFIG_ENDPOINT} and DefaultAzureCredential`,
         )
-        const azureConfig = new AzureAppConfig(undefined, undefined, undefined)
+        const azureConfig = new AzureAppConfig()
 
         // Wrap with fallback to defaults
         return new ConfigProviderWithFallback(azureConfig)

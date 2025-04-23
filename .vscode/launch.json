@@ -9,7 +9,7 @@
             "type": "node-terminal",
             "request": "launch",
             "command": "npm run dev",
-            "cwd": "${workspaceFolder}/src/frontend",
+            "cwd": "${workspaceFolder}/src/frontend/app",
             "sourceMaps": true,
             "trace": true
         },

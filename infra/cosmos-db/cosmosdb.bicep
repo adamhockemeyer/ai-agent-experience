@@ -13,6 +13,8 @@ param collectionNames array
 @description('The the partition key for the collections.')
 param partitionKey string = 'partitionKey'
 
+param sqlRoleAssignments array = []
+
 param tags object = {}
 
 resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-preview' = {
@@ -62,8 +64,22 @@ resource cosmosDbContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/
   }
 }]
 
+resource roleAssignmentsResource 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = [
+  for roleAssignment in sqlRoleAssignments: if(length(roleAssignment) > 0 ) {
+    name: guid(roleAssignment.principalId, roleAssignment.roleDefinitionId, cosmosDbAccount.id)
+    parent: cosmosDbAccount
+    properties: {
+      roleDefinitionId: '${subscription().id}/resourceGroups/${resourceGroup().name}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosDbAccount.name}/sqlRoleDefinitions/${roleAssignment.roleDefinitionId}'
+      principalId: roleAssignment.principalId
+      scope: cosmosDbAccount.id
+    }
+  }
+]
+
+
 output cosmosDbAccountName string = cosmosDbAccount.name
 output cosmosDbDatabaseName string = cosmosDbDatabase.name
 output cosmosDbContainerNames array = [for collection in collectionNames: collection]
 output cosmosDbEndpoint string = cosmosDbAccount.properties.documentEndpoint
 output cosmosDbPartitionKey string = partitionKey
+output cosmosDbId string = cosmosDbAccount.id
