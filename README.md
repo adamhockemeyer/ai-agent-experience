@@ -5,12 +5,14 @@
 
 The AI Agents Experience is a platform for creating, configuring, and custom AI agents which can access your apis, MCP tools, or orchestrate multiple agents.
 
+![Orchestrator Agent Example](images/orchestrator_agent_example_chat.gif)
+
+
 ### Home Page
 
 ![Home Page](images/homepage.png)
 
 The home page features:
-- Header displaying the application name "AI Agent Experience"
 - Sidebar showing available agents 
 - Main content area with a welcome message and sample chat interaction
 - Feature highlights including Natural Conversations, Code Interpreter, File Processing, Custom Tools, Centralized Configuration, and Enterprise Security
@@ -63,7 +65,7 @@ Requirements
 
     # Location: East US 2*
     
-    # * For best AI Model compatibility (otherwise, edit the `main.     parameters.json` file, and specify models that support the region you wish to deploy to)
+    # * For best AI Model compatibility (otherwise, edit the `main.parameters.json` file, and specify models that support the region you wish to deploy to)
 
     ```
     
