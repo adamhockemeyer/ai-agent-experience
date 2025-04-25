@@ -3,7 +3,7 @@
 
 ## Application Overview
 
-The AI Agents Experience is a platform for creating, configuring, and custom AI agents which can access your apis, MCP tools, or orchestrate multiple agents.
+The AI Agents Experience is a platform for creating, configuring, and extending custom AI agents which can access your apis, MCP tools, or orchestrate multiple agents. The solution utilizes [Semantic Kernel](https://github.com/microsoft/semantic-kernel) to dynamically build agents and plugins based on the configuration the user desires.
 
 ![Orchestrator Agent Example](images/orchestrator_agent_example_chat.gif)
 
@@ -84,8 +84,11 @@ Requirements
 
 ## Notes
 
-
-
+### Work in progress features
+- File Upload
+- Code interpreter (infra is done)
+- Remote MCP Server (STIO currently implemented)
+- Add AI Search Example
 
 ### Appendix
 ---
