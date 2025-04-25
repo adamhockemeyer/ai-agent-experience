@@ -4,7 +4,7 @@
 This is code and Azure resources to quickly deploy a working demo environment in a customers Azure subscription.
 
 #### Frontend application
-- `src/frontend` - NextJS React Application
+- `src/frontend` - Next JS 15 React Application
 - This is the core experience for the user. It allows the user to add new AI agents, edit agents, and interact with agents through a chat experience.
 - The front end applications calls the backend application
 - The front end application stores configuration for an agent in Azure App Configuration

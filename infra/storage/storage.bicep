@@ -1,6 +1,6 @@
 param name string
 param tags object = {}
-param containerName string = 'documents'
+param containerNames array = []
 
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   sku: {
@@ -52,14 +52,15 @@ resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01
   name: 'default'
 }
 
-resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = [for containerName in containerNames: {
   parent: blobServices
   name: containerName
   properties: {
     publicAccess: 'None'
   }
 }
+]
 
 output storageAccountName string = storage.name
-output containerName string = container.name
+output containerNames array = containerNames
 output id string = storage.id

@@ -12,7 +12,7 @@ resource appConfig 'Microsoft.AppConfiguration/configurationStores@2024-05-01' e
   name: appConfigName
 }
 
-resource deploymentScript 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
+resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'setWebsiteConfig-${uniqueString(appConfigName)}'
   location: location
   kind: 'AzureCLI'

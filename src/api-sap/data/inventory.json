@@ -1,0 +1,174 @@
+{
+  "d": {
+    "results": [
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-HR-COIL',Plant='1010')" },
+        "Material": "MAT-HR-COIL",
+        "Plant": "1010",
+        "StorageLocation": "0001",
+        "AvailableStock": "100.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "1701 N Tryon St",
+        "PlantCity": "Charlotte",
+        "PlantZipCode": "28202",
+        "PlantRegion": "NC"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-HR-COIL',Plant='1020')" },
+        "Material": "MAT-HR-COIL",
+        "Plant": "1020",
+        "StorageLocation": "0001",
+        "AvailableStock": "50.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "250 Industrial Pkwy",
+        "PlantCity": "Cleveland",
+        "PlantZipCode": "44114",
+        "PlantRegion": "OH"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-CR-COIL',Plant='1010')" },
+        "Material": "MAT-CR-COIL",
+        "Plant": "1010",
+        "StorageLocation": "0002",
+        "AvailableStock": "200.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "1701 N Tryon St",
+        "PlantCity": "Charlotte",
+        "PlantZipCode": "28202",
+        "PlantRegion": "NC"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-CR-COIL',Plant='1020')" },
+        "Material": "MAT-CR-COIL",
+        "Plant": "1020",
+        "StorageLocation": "0001",
+        "AvailableStock": "80.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "250 Industrial Pkwy",
+        "PlantCity": "Cleveland",
+        "PlantZipCode": "44114",
+        "PlantRegion": "OH"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-SLAB',Plant='1010')" },
+        "Material": "MAT-SLAB",
+        "Plant": "1010",
+        "StorageLocation": "0001",
+        "AvailableStock": "120.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "1701 N Tryon St",
+        "PlantCity": "Charlotte",
+        "PlantZipCode": "28202",
+        "PlantRegion": "NC"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-SLAB',Plant='1020')" },
+        "Material": "MAT-SLAB",
+        "Plant": "1020",
+        "StorageLocation": "0003",
+        "AvailableStock": "40.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "250 Industrial Pkwy",
+        "PlantCity": "Cleveland",
+        "PlantZipCode": "44114",
+        "PlantRegion": "OH"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-BILLET',Plant='1010')" },
+        "Material": "MAT-BILLET",
+        "Plant": "1010",
+        "StorageLocation": "0001",
+        "AvailableStock": "300.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "1701 N Tryon St",
+        "PlantCity": "Charlotte",
+        "PlantZipCode": "28202",
+        "PlantRegion": "NC"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-BILLET',Plant='1020')" },
+        "Material": "MAT-BILLET",
+        "Plant": "1020",
+        "StorageLocation": "0001",
+        "AvailableStock": "90.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "250 Industrial Pkwy",
+        "PlantCity": "Cleveland",
+        "PlantZipCode": "44114",
+        "PlantRegion": "OH"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-WIRE-ROD',Plant='1010')" },
+        "Material": "MAT-WIRE-ROD",
+        "Plant": "1010",
+        "StorageLocation": "0005",
+        "AvailableStock": "60.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "1701 N Tryon St",
+        "PlantCity": "Charlotte",
+        "PlantZipCode": "28202",
+        "PlantRegion": "NC"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-WIRE-ROD',Plant='1020')" },
+        "Material": "MAT-WIRE-ROD",
+        "Plant": "1020",
+        "StorageLocation": "0001",
+        "AvailableStock": "110.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "250 Industrial Pkwy",
+        "PlantCity": "Cleveland",
+        "PlantZipCode": "44114",
+        "PlantRegion": "OH"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-SS-SHEET',Plant='1010')" },
+        "Material": "MAT-SS-SHEET",
+        "Plant": "1010",
+        "StorageLocation": "0001",
+        "AvailableStock": "45.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "1701 N Tryon St",
+        "PlantCity": "Charlotte",
+        "PlantZipCode": "28202",
+        "PlantRegion": "NC"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-SS-SHEET',Plant='1020')" },
+        "Material": "MAT-SS-SHEET",
+        "Plant": "1020",
+        "StorageLocation": "0002",
+        "AvailableStock": "70.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "250 Industrial Pkwy",
+        "PlantCity": "Cleveland",
+        "PlantZipCode": "44114",
+        "PlantRegion": "OH"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-PIPE',Plant='1010')" },
+        "Material": "MAT-PIPE",
+        "Plant": "1010",
+        "StorageLocation": "0001",
+        "AvailableStock": "0.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "1701 N Tryon St",
+        "PlantCity": "Charlotte",
+        "PlantZipCode": "28202",
+        "PlantRegion": "NC"
+      },
+      {
+        "__metadata": { "uri": "ZSCM_ODATA_SRV/InventorySet(Material='MAT-PIPE',Plant='1020')" },
+        "Material": "MAT-PIPE",
+        "Plant": "1020",
+        "StorageLocation": "0001",
+        "AvailableStock": "30.000",
+        "BaseUoM": "TON",
+        "PlantStreet": "250 Industrial Pkwy",
+        "PlantCity": "Cleveland",
+        "PlantZipCode": "44114",
+        "PlantRegion": "OH"
+      }
+    ]
+  }
+}

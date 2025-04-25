@@ -1,0 +1,167 @@
+{
+  "d": {
+    "results": [
+      {
+        "__metadata": {
+          "uri": "ZSCM_ODATA_SRV/InboundDeliveryHeaderSet('1800000123')"
+        },
+        "InboundDeliveryNumber": "1800000123",
+        "Vendor": "STEEL-VEND-01",
+        "PlannedDeliveryDate": "/Date(1743465600000)/", 
+        "ReceivingPlant": "1010",
+        "InboundDeliveryHeader_To_Item": {
+          "results": [
+            {
+              "__metadata": {
+                "uri": "ZSCM_ODATA_SRV/InboundDeliveryItemSet(InboundDeliveryNumber='1800000123',InboundDeliveryItem='00010')"
+              },
+              "InboundDeliveryNumber": "1800000123",
+              "InboundDeliveryItem": "00010",
+              "Material": "MAT-HR-COIL",
+              "Quantity": "60.000",
+              "Unit": "TON",
+              "Batch": "",
+              "PlannedGoodsReceiptDate": "/Date(1743552000000)/"
+            }
+          ]
+        }
+      },
+      {
+        "__metadata": {
+          "uri": "ZSCM_ODATA_SRV/InboundDeliveryHeaderSet('1800000124')"
+        },
+        "InboundDeliveryNumber": "1800000124",
+        "Vendor": "STEEL-VEND-02",
+        "PlannedDeliveryDate": "/Date(1743552000000)/",
+        "ReceivingPlant": "1010",
+        "InboundDeliveryHeader_To_Item": {
+          "results": [
+            {
+              "__metadata": {
+                "uri": "ZSCM_ODATA_SRV/InboundDeliveryItemSet(InboundDeliveryNumber='1800000124',InboundDeliveryItem='00010')"
+              },
+              "InboundDeliveryNumber": "1800000124",
+              "InboundDeliveryItem": "00010",
+              "Material": "MAT-BILLET",
+              "Quantity": "80.000",
+              "Unit": "TON",
+              "Batch": "BLT-APRIL1",
+              "PlannedGoodsReceiptDate": "/Date(1743638400000)/"
+            }
+          ]
+        }
+      },
+      {
+        "__metadata": {
+          "uri": "ZSCM_ODATA_SRV/InboundDeliveryHeaderSet('1800000130')"
+        },
+        "InboundDeliveryNumber": "1800000130",
+        "Vendor": "STEEL-VEND-03",
+        "PlannedDeliveryDate": "/Date(1743638400000)/",
+        "ReceivingPlant": "1020",
+        "InboundDeliveryHeader_To_Item": {
+          "results": [
+            {
+              "__metadata": {
+                "uri": "ZSCM_ODATA_SRV/InboundDeliveryItemSet(InboundDeliveryNumber='1800000130',InboundDeliveryItem='00010')"
+              },
+              "InboundDeliveryNumber": "1800000130",
+              "InboundDeliveryItem": "00010",
+              "Material": "MAT-WIRE-ROD",
+              "Quantity": "45.000",
+              "Unit": "TON",
+              "Batch": "",
+              "PlannedGoodsReceiptDate": "/Date(1743724800000)/"
+            },
+            {
+              "__metadata": {
+                "uri": "ZSCM_ODATA_SRV/InboundDeliveryItemSet(InboundDeliveryNumber='1800000130',InboundDeliveryItem='00020')"
+              },
+              "InboundDeliveryNumber": "1800000130",
+              "InboundDeliveryItem": "00020",
+              "Material": "MAT-CR-COIL",
+              "Quantity": "70.000",
+              "Unit": "TON",
+              "Batch": "CR-APRIL1",
+              "PlannedGoodsReceiptDate": "/Date(1743724800000)/"
+            }
+          ]
+        }
+      },
+      {
+        "__metadata": {
+          "uri": "ZSCM_ODATA_SRV/InboundDeliveryHeaderSet('1800000135')"
+        },
+        "InboundDeliveryNumber": "1800000135",
+        "Vendor": "STEEL-VEND-04",
+        "PlannedDeliveryDate": "/Date(1743724800000)/",
+        "ReceivingPlant": "1010",
+        "InboundDeliveryHeader_To_Item": {
+          "results": [
+            {
+              "__metadata": {
+                "uri": "ZSCM_ODATA_SRV/InboundDeliveryItemSet(InboundDeliveryNumber='1800000135',InboundDeliveryItem='00010')"
+              },
+              "InboundDeliveryNumber": "1800000135",
+              "InboundDeliveryItem": "00010",
+              "Material": "MAT-SLAB",
+              "Quantity": "120.000",
+              "Unit": "TON",
+              "Batch": "",
+              "PlannedGoodsReceiptDate": "/Date(1743811200000)/"
+            },
+            {
+              "__metadata": {
+                "uri": "ZSCM_ODATA_SRV/InboundDeliveryItemSet(InboundDeliveryNumber='1800000135',InboundDeliveryItem='00020')"
+              },
+              "InboundDeliveryNumber": "1800000135",
+              "InboundDeliveryItem": "00020",
+              "Material": "MAT-PIPE",
+              "Quantity": "25.000",
+              "Unit": "TON",
+              "Batch": "PIPE-0425",
+              "PlannedGoodsReceiptDate": "/Date(1743811200000)/"
+            }
+          ]
+        }
+      },
+      {
+        "__metadata": {
+          "uri": "ZSCM_ODATA_SRV/InboundDeliveryHeaderSet('1800000140')"
+        },
+        "InboundDeliveryNumber": "1800000140",
+        "Vendor": "STEEL-VEND-05",
+        "PlannedDeliveryDate": "/Date(1743897600000)/",
+        "ReceivingPlant": "1010",
+        "InboundDeliveryHeader_To_Item": {
+          "results": [
+            {
+              "__metadata": {
+                "uri": "ZSCM_ODATA_SRV/InboundDeliveryItemSet(InboundDeliveryNumber='1800000140',InboundDeliveryItem='00010')"
+              },
+              "InboundDeliveryNumber": "1800000140",
+              "InboundDeliveryItem": "00010",
+              "Material": "MAT-HR-COIL",
+              "Quantity": "100.000",
+              "Unit": "TON",
+              "Batch": "HR-APRIL2",
+              "PlannedGoodsReceiptDate": "/Date(1743984000000)/"
+            },
+            {
+              "__metadata": {
+                "uri": "ZSCM_ODATA_SRV/InboundDeliveryItemSet(InboundDeliveryNumber='1800000140',InboundDeliveryItem='00020')"
+              },
+              "InboundDeliveryNumber": "1800000140",
+              "InboundDeliveryItem": "00020",
+              "Material": "MAT-BILLET",
+              "Quantity": "40.000",
+              "Unit": "TON",
+              "Batch": "",
+              "PlannedGoodsReceiptDate": "/Date(1743984000000)/"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

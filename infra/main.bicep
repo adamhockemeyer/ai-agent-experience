@@ -47,9 +47,13 @@ module storageAccount 'storage/storage.bicep' = {
   params: {
     name: replace(replace('${prefix}storage', '-', ''), '_', '')
     tags: commonTags
+    containerNames: [
+      'documents'
+      'function-releases'
+      'function-releases-api-sap'
+    ]
   }
 }
-
 // Create multiple OpenAI Accounts to show Load Balancing in API Management
 
 module cognitiveServices1 'cognitive-services/cognitive-services-openai.bicep' = {
@@ -61,6 +65,10 @@ module cognitiveServices1 'cognitive-services/cognitive-services-openai.bicep' =
     roleAssignments: [
       {
         principalId: apim.outputs.principalId
+        roleDefinitionId: sharedRoleDefinitions['Cognitive Services OpenAI User']
+      }
+      {
+        principalId: userAssignedManagedIdentity.properties.principalId
         roleDefinitionId: sharedRoleDefinitions['Cognitive Services OpenAI User']
       }
     ]
@@ -219,7 +227,6 @@ module cosmosDB 'cosmos-db/cosmosdb.bicep' = {
   }
 }
 
-
 module appConfig 'app-configuration/app-configuration.bicep' = {
   name: '${prefix}-appconfig'
   params: {
@@ -238,7 +245,8 @@ module appConfig 'app-configuration/app-configuration.bicep' = {
   }
 }
 
-// Add the website configuration to App Config after the OpenAI deployments are available
+// Website config are properties stored in App Configuration
+// The frontend web app will read these properties from App Configuration
 module websiteConfig 'app-configuration/website-config.bicep' = {
   name: '${prefix}-website-config'
   params: {
@@ -250,6 +258,37 @@ module websiteConfig 'app-configuration/website-config.bicep' = {
     identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
   }
 }
+
+// Add a weather agent config to App Configuration
+module weatherAgentConfig 'app-configuration/agent_weather_agent_config.bicep' = {
+  name: '${prefix}-weather-agent-config'
+  params: {
+    appConfigName: appConfig.outputs.name
+    apimName: apim.outputs.name
+    apimSubscriptionName: apimSubscriptionName
+    location: location
+    identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+  }
+}
+
+module playwrightAgentConfig 'app-configuration/agent_playwright_agent_config.bicep' = {
+  name: '${prefix}-playwright-agent-config'
+  params: {
+    appConfigName: appConfig.outputs.name
+    location: location
+    identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+  }
+}
+
+// module sapAgentConfig 'app-configuration/agent_sap_agent_config.bicep' = {
+//   name: '${prefix}-sap-agent-config'
+//   params: {
+//     appConfigName: appConfig.outputs.name
+//     sapFunctionAppName: sapDemoAPIFunctionApp.outputs.name
+//     location: location
+//     identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+//   }
+// }
 
 module search 'ai-search/search.bicep' = {
   name: '${prefix}-search'
@@ -265,6 +304,45 @@ module search 'ai-search/search.bicep' = {
       {
         principalId: userAssignedManagedIdentity.properties.principalId
         roleDefinitionId: sharedRoleDefinitions['Cognitive Services OpenAI User']
+      }
+    ]
+  }
+}
+
+// Function App with Flex Consumption Plan
+module functionAppPlan 'function-app/function-app-plan.bicep' = {
+  name: '${prefix}-function-app-plan'
+  params: {
+    location: location
+    name: '${prefix}-function-plan'
+    tags: commonTags
+    sku: {
+      tier: 'FlexConsumption'
+      name: 'FC1'
+    }
+  }
+}
+
+// Function App Site
+module sapDemoAPIFunctionApp 'function-app/function-app-site.bicep' = {
+  name: '${prefix}-function-app'
+  params: {
+    location: location
+    name: '${prefix}-function-api-sap'
+    appServicePlanId: functionAppPlan.outputs.resourceId
+    tags: union(commonTags, { 'azd-service-name': 'api-sap' })
+    identityType: 'UserAssigned'
+    identityId: userAssignedManagedIdentity.id
+    principalId: userAssignedManagedIdentity.properties.principalId
+    applicationInsightsConnectionString: applicationInsights.outputs.connectionString
+    storageAccountName: storageAccount.outputs.storageAccountName
+    maximumInstanceCount: 40
+    instanceMemoryMB: 512
+    deploymentStorageContainerName: 'function-releases-api-sap'
+    env: [
+      {
+        name: 'AZURE_CLIENT_ID'
+        value: userAssignedManagedIdentity.properties.clientId
       }
     ]
   }
@@ -344,7 +422,7 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
         value: appConfig.outputs.endpoint
       }
       {
-        name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+        name: 'AZURE_APPLICATION_INSIGHTS_CONNECTION_STRING'
         value: applicationInsights.outputs.connectionString
       }
       {
@@ -411,7 +489,7 @@ module webContainerApp 'container-apps/container-app-upsert.bicep' = {
         value: applicationInsights.outputs.connectionString
       }
       {
-        name: 'NEXT_PUBLIC_CHAT_API_ENDPOINT'
+        name: 'CHAT_API_ENDPOINT'
         value: apiContainerApp.outputs.uri
       }
       {

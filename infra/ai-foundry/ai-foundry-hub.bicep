@@ -133,3 +133,7 @@ module roleAssignment '../auth/role-assignment.bicep' = [
 output id string = foundryHub.id
 output name string = foundryHub.name
 output principalId string = foundryHub.identity.principalId
+output connection_aisvcId string = connection_aisvc.id
+output connection_searchId string = connection_search.id
+output connection_aisvcName string = connection_aisvc.name
+output connection_searchName string = connection_search.name

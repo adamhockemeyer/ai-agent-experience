@@ -94,7 +94,7 @@ var logSettings = {
     'x-ratelimit-remaining-tokens'
     'x-ratelimit-remaining-requests'
   ]
-  body: { bytes: 8192 }
+  body: { bytes: 0 }
 }
 
 resource apimDiagnostic 'Microsoft.ApiManagement/service/diagnostics@2024-06-01-preview' = {

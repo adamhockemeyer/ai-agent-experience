@@ -1,0 +1,176 @@
+{
+    "d": {
+      "results": [
+        {
+          "__metadata": {
+            "uri": "ZSCM_ODATA_SRV/PurchaseOrderHeaderSet('4500001201')"
+          },
+          "PurchaseOrder": "4500001201",
+          "Vendor": "STEEL-VEND-01",
+          "DocumentDate": "/Date(1690848000000)/",
+          "Currency": "USD",
+          "NetValue": "13500.00",
+          "POHeader_To_Item": {
+            "results": [
+              {
+                "__metadata": {
+                  "uri": "ZSCM_ODATA_SRV/PurchaseOrderItemSet(PurchaseOrder='4500001201',PurchaseOrderItem='00010')"
+                },
+                "PurchaseOrder": "4500001201",
+                "PurchaseOrderItem": "00010",
+                "Material": "MAT-HR-COIL",
+                "OrderQuantity": "75.000",
+                "NetPrice": "120.00",
+                "DeliveryDate": "/Date(1691529600000)/"
+              },
+              {
+                "__metadata": {
+                  "uri": "ZSCM_ODATA_SRV/PurchaseOrderItemSet(PurchaseOrder='4500001201',PurchaseOrderItem='00020')"
+                },
+                "PurchaseOrder": "4500001201",
+                "PurchaseOrderItem": "00020",
+                "Material": "MAT-BILLET",
+                "OrderQuantity": "50.000",
+                "NetPrice": "200.00",
+                "DeliveryDate": "/Date(1691616000000)/"
+              }
+            ]
+          }
+        },
+        {
+          "__metadata": {
+            "uri": "ZSCM_ODATA_SRV/PurchaseOrderHeaderSet('4500001202')"
+          },
+          "PurchaseOrder": "4500001202",
+          "Vendor": "STEEL-VEND-02",
+          "DocumentDate": "/Date(1690934400000)/",
+          "Currency": "USD",
+          "NetValue": "4800.00",
+          "POHeader_To_Item": {
+            "results": [
+              {
+                "__metadata": {
+                  "uri": "ZSCM_ODATA_SRV/PurchaseOrderItemSet(PurchaseOrder='4500001202',PurchaseOrderItem='00010')"
+                },
+                "PurchaseOrder": "4500001202",
+                "PurchaseOrderItem": "00010",
+                "Material": "MAT-CR-COIL",
+                "OrderQuantity": "40.000",
+                "NetPrice": "80.00",
+                "DeliveryDate": "/Date(1691616000000)/"
+              },
+              {
+                "__metadata": {
+                  "uri": "ZSCM_ODATA_SRV/PurchaseOrderItemSet(PurchaseOrder='4500001202',PurchaseOrderItem='00020')"
+                },
+                "PurchaseOrder": "4500001202",
+                "PurchaseOrderItem": "00020",
+                "Material": "MAT-SS-SHEET",
+                "OrderQuantity": "30.000",
+                "NetPrice": "40.00",
+                "DeliveryDate": "/Date(1691702400000)/"
+              }
+            ]
+          }
+        },
+        {
+          "__metadata": {
+            "uri": "ZSCM_ODATA_SRV/PurchaseOrderHeaderSet('4500001203')"
+          },
+          "PurchaseOrder": "4500001203",
+          "Vendor": "STEEL-VEND-03",
+          "DocumentDate": "/Date(1691020800000)/",
+          "Currency": "USD",
+          "NetValue": "7500.00",
+          "POHeader_To_Item": {
+            "results": [
+              {
+                "__metadata": {
+                  "uri": "ZSCM_ODATA_SRV/PurchaseOrderItemSet(PurchaseOrder='4500001203',PurchaseOrderItem='00010')"
+                },
+                "PurchaseOrder": "4500001203",
+                "PurchaseOrderItem": "00010",
+                "Material": "MAT-SLAB",
+                "OrderQuantity": "100.000",
+                "NetPrice": "75.00",
+                "DeliveryDate": "/Date(1691702400000)/"
+              }
+            ]
+          }
+        },
+        {
+          "__metadata": {
+            "uri": "ZSCM_ODATA_SRV/PurchaseOrderHeaderSet('4500001204')"
+          },
+          "PurchaseOrder": "4500001204",
+          "Vendor": "STEEL-VEND-04",
+          "DocumentDate": "/Date(1691107200000)/",
+          "Currency": "USD",
+          "NetValue": "6200.00",
+          "POHeader_To_Item": {
+            "results": [
+              {
+                "__metadata": {
+                  "uri": "ZSCM_ODATA_SRV/PurchaseOrderItemSet(PurchaseOrder='4500001204',PurchaseOrderItem='00010')"
+                },
+                "PurchaseOrder": "4500001204",
+                "PurchaseOrderItem": "00010",
+                "Material": "MAT-WIRE-ROD",
+                "OrderQuantity": "60.000",
+                "NetPrice": "100.00",
+                "DeliveryDate": "/Date(1691798400000)/"
+              },
+              {
+                "__metadata": {
+                  "uri": "ZSCM_ODATA_SRV/PurchaseOrderItemSet(PurchaseOrder='4500001204',PurchaseOrderItem='00020')"
+                },
+                "PurchaseOrder": "4500001204",
+                "PurchaseOrderItem": "00020",
+                "Material": "MAT-PIPE",
+                "OrderQuantity": "20.000",
+                "NetPrice": "200.00",
+                "DeliveryDate": "/Date(1691884800000)/"
+              }
+            ]
+          }
+        },
+        {
+          "__metadata": {
+            "uri": "ZSCM_ODATA_SRV/PurchaseOrderHeaderSet('4500001205')"
+          },
+          "PurchaseOrder": "4500001205",
+          "Vendor": "STEEL-VEND-05",
+          "DocumentDate": "/Date(1691193600000)/",
+          "Currency": "USD",
+          "NetValue": "9000.00",
+          "POHeader_To_Item": {
+            "results": [
+              {
+                "__metadata": {
+                  "uri": "ZSCM_ODATA_SRV/PurchaseOrderItemSet(PurchaseOrder='4500001205',PurchaseOrderItem='00010')"
+                },
+                "PurchaseOrder": "4500001205",
+                "PurchaseOrderItem": "00010",
+                "Material": "MAT-CR-COIL",
+                "OrderQuantity": "50.000",
+                "NetPrice": "90.00",
+                "DeliveryDate": "/Date(1691884800000)/"
+              },
+              {
+                "__metadata": {
+                  "uri": "ZSCM_ODATA_SRV/PurchaseOrderItemSet(PurchaseOrder='4500001205',PurchaseOrderItem='00020')"
+                },
+                "PurchaseOrder": "4500001205",
+                "PurchaseOrderItem": "00020",
+                "Material": "MAT-SS-SHEET",
+                "OrderQuantity": "30.000",
+                "NetPrice": "110.00",
+                "DeliveryDate": "/Date(1691971200000)/"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+  

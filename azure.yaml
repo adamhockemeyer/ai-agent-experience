@@ -12,3 +12,7 @@ services:
     host: containerapp
     docker:
       remoteBuild: true
+  api-sap:
+    project: ./src/api-sap
+    language: py
+    host: function

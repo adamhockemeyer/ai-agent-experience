@@ -16,6 +16,8 @@ param roleAssignments array = []
 @description('Optional deployment settings for models')
 param modelDeployments array = []
 
+
+
 resource foundryProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview' = {
   name: name
   location: location
@@ -34,6 +36,8 @@ resource foundryProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01
     publicNetworkAccess: 'Enabled'
   }
 }
+
+
 
 @description('This module assigns the specified role to the AI Foundry Project resource')
 module roleAssignment '../auth/role-assignment.bicep' = [

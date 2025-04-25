@@ -1,25 +1,72 @@
-
 ### AI Agents Experience
 ---
+
+## Application Overview
+
+The AI Agents Experience is a platform for creating, configuring, and custom AI agents which can access your apis, MCP tools, or orchestrate multiple agents.
+
+### Home Page
+
+![Home Page](images/homepage.png)
+
+The home page features:
+- Header displaying the application name "AI Agent Experience"
+- Sidebar showing available agents 
+- Main content area with a welcome message and sample chat interaction
+- Feature highlights including Natural Conversations, Code Interpreter, File Processing, Custom Tools, Centralized Configuration, and Enterprise Security
+
+### Agent Chat Interface
+
+![Agent Chat](images/weather_agent.png)
+
+The Weather Agent interface allows users to:
+- Interact with the agent through natural language
+- Ask weather-related questions (e.g., "What is the current weather in Orlando, FL?")
+- View agent capabilities and model information
+
+### Settings & Configuration
+
+![Agent Settings](images/agent_settings.png)
+
+The settings page provides:
+- General configuration options (website name, agent visibility)
+- Model management for configuring AI models
+- Agent management for creating, editing, and deleting agents
+- Authentication settings
 
 ## Deployment
 
 Requirements
-- [Azure Developer CLI](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+1.  [Azure Developer CLI](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
 
 
 1. Create an Azure Resource Group for this project (In the portal or CLI).
 
     ```shell
-    az group create --name aiagents-rg --location eastus
+    
+    # Create a new resource group (eastus2, preferred)
+    az group create --name aiagents-rg --location eastus2
     ```
 
 1.  Initialize the Azure Developer CLI
 
     ```shell
-    azd init
+    # locally, if you cloned the repo
+    azd init 
+
+    # or
+
+    # will clone the repo for you
+    azd init --template adamhockemeyer/ai-agent-experience 
+
+    # Environment name: dev
+
+    # Location: East US 2*
+    
+    # * For best AI Model compatibility (otherwise, edit the `main.     parameters.json` file, and specify models that support the region you wish to deploy to)
+
     ```
-    You will be prompted to enter an environment name (i.e. `dev`)
+    
 
 1. Authenticate Azure Developer CLI
 
@@ -27,13 +74,7 @@ Requirements
     azd auth login [--tenant-id]
     ```
 
-1.  Set the Azure resource group you wish to deploy to
-
-    ```shell
-    azd env set AZURE_RESOURCE_GROUP <resource-group-name>
-    ```
-
-1.  Run the following command to build, deploy & configure the image
+1.  Run the following command to build, deploy & configure the sample
 
     ```shell
     azd up
