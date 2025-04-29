@@ -10,13 +10,20 @@ param tags object = {}
 @description('The ID of the AI Foundry Hub to associate with this project.')
 param hubId string
 
+@description('Name of the AI Foundry Hub resource')
+param hubName string
+
 @description('Role assignments for the AI Foundry Project')
 param roleAssignments array = []
+
+param aiServicesConnectionName array = []
 
 @description('Optional deployment settings for models')
 param modelDeployments array = []
 
-
+resource hub 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview' existing = {
+  name: hubName
+}
 
 resource foundryProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview' = {
   name: name
@@ -39,16 +46,28 @@ resource foundryProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01
 
 
 
-@description('This module assigns the specified role to the AI Foundry Project resource')
-module roleAssignment '../auth/role-assignment.bicep' = [
-  for (roleAssignment, i) in roleAssignments: {
-    name: '${name}-project-role-assignment-${i}'
-    params: {
-      principalId: roleAssignment.principalId
-      roleDefinitionId: roleAssignment.roleDefinitionId
-    }
+resource capabilityHosts_Agent 'Microsoft.MachineLearningServices/workspaces/capabilityHosts@2025-01-01-preview' = {
+  parent: foundryProject
+  name: '${name}-capabilityHosts-Agent'
+  properties: {
+    capabilityHostKind: 'Agents'
+    aiServicesConnections: aiServicesConnectionName
   }
-]
+  dependsOn: [
+    hub
+  ]
+}
+
+// @description('This module assigns the specified role to the AI Foundry Project resource')
+// module roleAssignment '../auth/role-assignment.bicep' = [
+//   for (roleAssignment, i) in roleAssignments: {
+//     name: '${name}-project-role-assignment-${i}'
+//     params: {
+//       principalId: roleAssignment.principalId
+//       roleDefinitionId: roleAssignment.roleDefinitionId
+//     }
+//   }
+// ]
 
 output id string = foundryProject.id
 output name string = foundryProject.name

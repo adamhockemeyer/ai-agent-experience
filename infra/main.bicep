@@ -6,7 +6,13 @@ param environmentName string
 @description('Azure region where resources should be deployed')
 param location string
 
-param prefix string = '${substring(uniqueString(resourceGroup().id),0,4)}-aiagents'
+@description('Resource name prefix. If not provided, a valid default will be generated.')
+param resourcePrefix string = '${substring(uniqueString(resourceGroup().id),0,4)}-aiagents'
+
+// Ensure the prefix starts with a letter for resource naming compliance
+var prefix = contains('abcdefghijklmnopqrstuvwxyz', toLower(substring(resourcePrefix, 0, 1)))
+  ? resourcePrefix
+  : 'a${substring(resourcePrefix, 1, length(resourcePrefix) - 1)}'
 
 @description('Array of OpenAI model deployments to create. If empty, default models will be used.')
 param openAIDeployments array = []
@@ -542,6 +548,17 @@ module aiFoundryProject 'ai-foundry/ai-foundry-project.bicep' = {
     name: '${prefix}-ai-foundry-project'
     tags: commonTags
     hubId: aiFoundryHub.outputs.id
+    hubName: aiFoundryHub.outputs.name
+    aiServicesConnectionName: [aiFoundryHub.outputs.connection_aisvcName]
+  }
+}
+
+module aiFoundryRoleAssignment 'auth/ai-service-role-assignments.bicep' = {
+  name: '${prefix}-ai-foundry-role-assignment'
+  params: {
+    aiServicesName: cognitiveServices1.outputs.name
+    aiProjectPrincipalId: aiFoundryProject.outputs.principalId
+    aiProjectId: aiFoundryProject.outputs.id
   }
 }
 

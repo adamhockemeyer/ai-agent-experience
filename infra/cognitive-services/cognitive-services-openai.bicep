@@ -36,3 +36,4 @@ output resourceId string = cognitiveServicesAccount.id
 output endpoint string = cognitiveServicesAccount.properties.endpoint
 output name string = cognitiveServicesAccount.name
 output kind string = cognitiveServicesAccount.kind
+output principalId string = cognitiveServicesAccount.identity.principalId

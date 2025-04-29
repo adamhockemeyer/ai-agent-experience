@@ -7,5 +7,6 @@
     "App Configuration Data Owner": "5ae67dd6-50cb-40e7-96ff-dc2bfa4b606b",
     "Key Vault Secrets User": "4633458b-17de-408a-b874-0445c86b69e6",
     "Key Vault Secrets Officer":"b86a8fe4-44ce-4948-aee5-eccb2c155cd7",
-    "Cosmos DB Built-in Data Contributor": "00000000-0000-0000-0000-000000000002"
+    "Cosmos DB Built-in Data Contributor": "00000000-0000-0000-0000-000000000002",
+    "Azure AI Developer": "64702f94-c441-49e6-a78b-ef80e0188fee"
 }
