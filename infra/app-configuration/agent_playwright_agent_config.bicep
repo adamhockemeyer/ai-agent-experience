@@ -66,7 +66,7 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
 
       echo "Script started"
 
-      APP_CONFIG_NAME=$1
+      APP_CONFIG_ENDPOINT=$1
       CONFIG_BASE64=$2
 
       # Decode the base64 encoded config
@@ -77,21 +77,21 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       cat agent_config.json
 
       # Set the key-value in App Configuration
-      echo "Setting agent:playwright_agent in App Configuration $APP_CONFIG_NAME"
-      az appconfig kv set --name "$APP_CONFIG_NAME" \
+      echo "Setting agent:playwright_agent in App Configuration $APP_CONFIG_ENDPOINT"
+      az appconfig kv set --endpoint "$APP_CONFIG_ENDPOINT" \
         --key "agent:playwright_agent" \
         --value @agent_config.json \
         --content-type "application/json" \
         --auth-mode login \
         --yes
 
-      echo "Successfully set playwright agent config in $APP_CONFIG_NAME"
+      echo "Successfully set playwright agent config in $APP_CONFIG_ENDPOINT"
       
       # Verify the key was set
       echo "Verifying the key was set correctly:"
-      az appconfig kv show --name "$APP_CONFIG_NAME" --key "agent:playwright_agent" --query "key" || echo "Failed to verify key"
+      az appconfig kv show --endpoint "$APP_CONFIG_ENDPOINT" --key "agent:playwright_agent" --query "key" || echo "Failed to verify key"
     '''
-    arguments: '${appConfigName} ${playwrightAgentConfigJson}'
+    arguments: '${appConfig.properties.endpoint} ${playwrightAgentConfigJson}'
     cleanupPreference: 'OnSuccess'
   }
 }

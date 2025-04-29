@@ -78,7 +78,7 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
 
       echo "Script started"
 
-      APP_CONFIG_NAME=$1
+      APP_CONFIG_ENDPOINT=$1
       APIM_NAME=$2
       SUBSCRIPTION_KEY=$3
       CONFIG_BASE64=$4
@@ -110,21 +110,21 @@ with open('agent_config.json', 'w') as f:
       cat agent_config.json
 
       # Set the key-value in App Configuration
-      echo "Setting agent:weather_agent in App Configuration $APP_CONFIG_NAME"
-      az appconfig kv set --name "$APP_CONFIG_NAME" \
+      echo "Setting agent:weather_agent in App Configuration $APP_CONFIG_ENDPOINT"
+      az appconfig kv set --endpoint "$APP_CONFIG_ENDPOINT" \
         --key "agent:weather_agent" \
         --value @agent_config.json \
         --content-type "application/json" \
         --auth-mode login \
         --yes
 
-      echo "Successfully set weather agent config in $APP_CONFIG_NAME"
+      echo "Successfully set weather agent config in $APP_CONFIG_ENDPOINT"
       
       # Verify the key was set
       echo "Verifying the key was set correctly:"
-      az appconfig kv show --name "$APP_CONFIG_NAME" --key "agent:weather_agent" --query "key" || echo "Failed to verify key"
+      az appconfig kv show --endpoint "$APP_CONFIG_ENDPOINT" --key "agent:weather_agent" --query "key" || echo "Failed to verify key"
     '''
-    arguments: '${appConfigName} ${apimName} ${apimSubscription.listSecrets().primaryKey} ${weatherAgentConfigJson}'
+    arguments: '${appConfig.properties.endpoint} ${apimName} ${apimSubscription.listSecrets().primaryKey} ${weatherAgentConfigJson}'
     cleanupPreference: 'OnSuccess'
   }
 }
