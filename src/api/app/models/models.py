@@ -8,7 +8,7 @@ class MsgPayload(BaseModel):
 
 
 class Authentication(BaseModel):
-    type: str = Field(..., description="Authentication type (e.g., 'Header')")
+    type: Literal["Anonymous", "Header", "EntraID-AppIdentity", "EntraID-OnBehalfOf"] = Field(..., description="Authentication type (e.g., 'Header')")
     headerName: Optional[str] = Field(None, description="Name of the header when type is 'Header'")
     headerValue: Optional[str] = Field(None, description="Value of the header when type is 'Header'")
     

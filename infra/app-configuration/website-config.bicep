@@ -30,7 +30,7 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       #!/bin/bash
       set -e
 
-      APP_CONFIG_NAME=$1
+      APP_CONFIG_ENDPOINT=$1
       WEBSITE_NAME=$2
       AUTH_ENABLED=$3
       DEPLOYMENTS_BASE64=$4
@@ -77,16 +77,16 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       cat config.json
 
       # Set the key-value in App Configuration
-      az appconfig kv set --name "$APP_CONFIG_NAME" \
+      az appconfig kv set --endpoint "$APP_CONFIG_ENDPOINT" \
         --key "website" \
         --value @config.json \
         --content-type "application/json" \
         --auth-mode login \
         --yes
 
-      echo "Successfully set website config in $APP_CONFIG_NAME"
+      echo "Successfully set website config in $APP_CONFIG_ENDPOINT"
     '''
-    arguments: '${appConfigName} "${websiteName}" ${toLower(string(authenticationEnabled))} ${deploymentsBase64}'
+    arguments: '${appConfig.properties.endpoint} "${websiteName}" ${toLower(string(authenticationEnabled))} ${deploymentsBase64}'
     cleanupPreference: 'OnSuccess'
   }
 }

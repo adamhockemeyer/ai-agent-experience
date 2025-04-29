@@ -5,10 +5,11 @@ import httpx
 import yaml
 from typing import Dict, List, Any, Optional, Callable
 from opentelemetry import trace
+from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 
 from semantic_kernel.functions.kernel_plugin import KernelPlugin
 from semantic_kernel.connectors.openapi_plugin.openapi_function_execution_parameters import OpenAPIFunctionExecutionParameters
-from app.models import Tool
+from app.models import Tool, Authentication
 from app.plugins.base import PluginBase
 from app.services.openapi_spec_cache import OpenAPISpecCache
 
@@ -101,7 +102,7 @@ class OpenAPIPluginHandler(PluginBase):
         if plugin_id:
             del self._plugins[plugin_id]
     
-    def _create_auth_callback(self, authentications: List) -> Optional[Callable]:
+    def _create_auth_callback(self, authentications: List[Authentication]) -> Optional[Callable]:
         """Create authentication callback function for OpenAPI requests."""
         if not authentications:
             return None
@@ -122,6 +123,17 @@ class OpenAPIPluginHandler(PluginBase):
                     
                     auth_callbacks.append(header_auth_callback)
         
+            # if auth.type == "EntraID-AppIdentity":
+            #     # You may want to allow specifying a resource/audience in the Authentication model
+            #     resource = getattr(auth, "resource", "https://management.azure.com/.default")
+            #     async def entra_id_auth_callback(**kwargs):
+            #         credential = DefaultAzureCredential()
+            #         token = await credential.get_token(resource)
+            #         headers = kwargs.get("headers", {})
+            #         headers["Authorization"] = f"Bearer {token.token}"
+            #         await credential.close()
+            #         return headers
+            #     auth_callbacks.append(entra_id_auth_callback)
         # No auth callbacks created
         if not auth_callbacks:
             return None
