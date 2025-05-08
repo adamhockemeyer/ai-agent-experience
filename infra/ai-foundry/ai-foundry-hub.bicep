@@ -110,13 +110,13 @@ resource connection_search 'Microsoft.MachineLearningServices/workspaces/connect
   }
 }
 
-resource capabilityHosts_Agent 'Microsoft.MachineLearningServices/workspaces/capabilityHosts@2025-01-01-preview' = {
-  parent: foundryHub
-  name: '${name}-capabilityHosts-Agent'
-  properties: {
-    capabilityHostKind: 'Agents'
-  }
-}
+// resource capabilityHosts_Agent 'Microsoft.MachineLearningServices/workspaces/capabilityHosts@2025-01-01-preview' = {
+//   parent: foundryHub
+//   name: '${name}-capabilityHosts-Agent'
+//   properties: {
+//     capabilityHostKind: 'Agents'
+//   }
+// }
 
 @description('This module assigns the specified role to the AI Foundry Hub resource')
 module roleAssignment '../auth/role-assignment.bicep' = [

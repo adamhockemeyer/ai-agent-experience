@@ -63,10 +63,10 @@
       "value": "eastus"
     },
     "apiAppExists": {
-      "value": false
+      "value": "${SERVICE_API_RESOURCE_EXISTS}"
     },
     "webAppExists": {
-      "value": false
+      "value": "${SERVICE_WEB_RESOURCE_EXISTS}"
     }
   }
 }

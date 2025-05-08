@@ -23,6 +23,7 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-previ
   kind: 'GlobalDocumentDB'
   properties: {
     databaseAccountOfferType: 'Standard'
+    capabilities: [{ name: 'EnableNoSQLVectorSearch' }]
     locations: [
       {
         locationName: location
@@ -45,27 +46,29 @@ resource cosmosDbDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@20
   }
 }
 
-resource cosmosDbContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-12-01-preview' = [for collection in collectionNames: {
-  parent: cosmosDbDatabase
-  name: collection
-  properties: {
-    resource: {
-      id: collection
-      partitionKey: {
-        paths: ['/${partitionKey}']
-        kind: 'Hash'
+resource cosmosDbContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-12-01-preview' = [
+  for collection in collectionNames: {
+    parent: cosmosDbDatabase
+    name: collection
+    properties: {
+      resource: {
+        id: collection
+        partitionKey: {
+          paths: ['/${partitionKey}']
+          kind: 'Hash'
+        }
       }
-    }
-    options: {
-      autoscaleSettings: {
-        maxThroughput: 4000
+      options: {
+        autoscaleSettings: {
+          maxThroughput: 4000
+        }
       }
     }
   }
-}]
+]
 
 resource roleAssignmentsResource 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = [
-  for roleAssignment in sqlRoleAssignments: if(length(roleAssignment) > 0 ) {
+  for roleAssignment in sqlRoleAssignments: if (length(roleAssignment) > 0) {
     name: guid(roleAssignment.principalId, roleAssignment.roleDefinitionId, cosmosDbAccount.id)
     parent: cosmosDbAccount
     properties: {
@@ -75,7 +78,6 @@ resource roleAssignmentsResource 'Microsoft.DocumentDB/databaseAccounts/sqlRoleA
     }
   }
 ]
-
 
 output cosmosDbAccountName string = cosmosDbAccount.name
 output cosmosDbDatabaseName string = cosmosDbDatabase.name

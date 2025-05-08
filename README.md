@@ -26,6 +26,10 @@ The Weather Agent interface allows users to:
 - Ask weather-related questions (e.g., "What is the current weather in Orlando, FL?")
 - View agent capabilities and model information
 
+### Visualize Data Using Rich HTML, Javascript, and CSS
+
+![Agent Chat](images/agent_iframe_embed.png)
+
 ### Settings & Configuration
 
 ![Agent Settings](images/agent_settings.png)
@@ -35,6 +39,10 @@ The settings page provides:
 - Model management for configuring AI models
 - Agent management for creating, editing, and deleting agents
 - Authentication settings
+
+### Orchestrate Multiple Agents
+
+![Agent Settings](images/agent_tools_orchestration.png)
 
 ## Deployment
 

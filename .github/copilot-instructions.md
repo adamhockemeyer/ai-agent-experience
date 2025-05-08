@@ -4,7 +4,7 @@
 This is code and Azure resources to quickly deploy a working demo environment in a customers Azure subscription.
 
 #### Frontend application
-- `src/frontend` - Next JS 15 React Application
+- `src/frontend/app` - Next JS 15 React Application
 - This is the core experience for the user. It allows the user to add new AI agents, edit agents, and interact with agents through a chat experience.
 - The front end applications calls the backend application
 - The front end application stores configuration for an agent in Azure App Configuration
@@ -24,8 +24,9 @@ This is code and Azure resources to quickly deploy a working demo environment in
 - The could needs at least 1 primary 'orchestrator' semantic kernel agent. An agent could have no plugins/tools or it could have many. Including other agents cold be a plugin. Semantic kernel supports many different types of agents (i.e. ChatCompletionAgent, AIAgentAgent, etc.). There should be an agent_factory or similar that can be simply called with passing in the agent configuration and return an agent and thread.
 - Agents will need their plugins configured if they have been set.
 
-### Other
+#### Other
 - `infra` - Bicep Templates for Azure Infrastructures
 
 - @azure Rule - Use Azure Best Practices: When generating code for Azure, running terminal commands for Azure, or performing operations related to Azure, invoke your `azure_development-get_best_practices` tool if available.
 
+- Azure Role Based Access Control - Refer to [Built In Roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles) to reference id's for various Azure RBAC roles when needing to assign permissions

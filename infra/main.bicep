@@ -60,6 +60,7 @@ module storageAccount 'storage/storage.bicep' = {
     ]
   }
 }
+
 // Create multiple OpenAI Accounts to show Load Balancing in API Management
 
 module cognitiveServices1 'cognitive-services/cognitive-services-openai.bicep' = {
@@ -229,6 +230,10 @@ module cosmosDB 'cosmos-db/cosmosdb.bicep' = {
         principalId: userAssignedManagedIdentity.properties.principalId
         roleDefinitionId: sharedRoleDefinitions['Cosmos DB Built-in Data Contributor']
       }
+      {
+        principalId: az.deployer().objectId
+        roleDefinitionId: sharedRoleDefinitions['Cosmos DB Built-in Data Contributor']
+      }
     ]
   }
 }
@@ -247,6 +252,12 @@ module appConfig 'app-configuration/app-configuration.bicep' = {
         principalId: userAssignedManagedIdentity.properties.principalId
         roleDefinitionId: sharedRoleDefinitions['App Configuration Data Owner']
       }
+      {
+        principalId: az.deployer().objectId
+        principalType: 'User'
+        roleDefinitionId: sharedRoleDefinitions['App Configuration Data Owner']
+      }
+
     ]
   }
 }
@@ -440,6 +451,10 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
         value: 'https://${cognitiveServices1.outputs.name}.services.ai.azure.com/models'
       }
       {
+        name: 'AZURE_AI_AGENT_PROJECT_CONNECTION_STRING'
+        value: aiFoundryProject.outputs.connectionString
+      }
+      {
         name: 'SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS'
         value: 'true'
       }
@@ -562,6 +577,15 @@ module aiFoundryRoleAssignment 'auth/ai-service-role-assignments.bicep' = {
   }
 }
 
+module vectorizationRoleAssignments './auth/ai-search-vectorization-assignments.bicep' = {
+  name: 'ai-search-vectorization-role-assignments'
+  params: {
+    principals: [ 
+      { principalId: az.deployer().objectId, principalType: 'User' } 
+    ]
+  }
+}
+
 // App outputs
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
@@ -573,3 +597,7 @@ output SERVICE_API_NAME string = apiContainerApp.outputs.name
 output SERVICE_WEB_NAME string = webContainerApp.outputs.name
 output AI_FOUNDRY_HUB_NAME string = aiFoundryHub.outputs.name
 output AI_FOUNDRY_PROJECT_NAME string = aiFoundryProject.outputs.name
+output AZURE_STORAGE_ACCOUNT_NAME string = storageAccount.outputs.storageAccountName
+output AZURE_SEARCH_SERVICE_NAME string = search.outputs.name
+output AZURE_OPENAI_ENDPOINT string = cognitiveServices1.outputs.endpoint
+output AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME string = openAIDeployments1.outputs.embeddingDeploymentName

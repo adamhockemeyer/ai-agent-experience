@@ -50,6 +50,7 @@ interface AgentFormProps {
 }
 
 export default function AgentForm({ agent, isEditing = false }: AgentFormProps) {
+  
   const router = useRouter()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -77,7 +78,7 @@ export default function AgentForm({ agent, isEditing = false }: AgentFormProps) 
       description: "",
       systemPrompt: "",
       defaultPrompts: [""],
-      agentType: "AzureAIAgent",
+      agentType: "ChatCompletionAgent",
       foundryAgentId: "",
       modelSelection: {
         provider: "AzureOpenAI",

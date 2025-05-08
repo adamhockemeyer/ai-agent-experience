@@ -1,5 +1,5 @@
 {
-  "name": "my-v0-project",
+  "name": "ai-agent-experience",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@azure/app-configuration": "latest",
+    "@azure/identity": "latest",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
@@ -37,14 +39,21 @@
     "@radix-ui/react-toggle": "1.1.1",
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
+    "@tailwindcss/typography": "latest",
+    "@types/dompurify": "^3.2.0",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
+    "dompurify": "^3.2.5",
     "embla-carousel-react": "8.5.1",
+    "highlight.js": "latest",
     "input-otp": "1.4.1",
+    "js-yaml": "latest",
     "lucide-react": "^0.454.0",
+    "marked": "latest",
+    "marked-highlight": "^2.2.1",
     "next": "15.2.4",
     "next-themes": "^0.4.4",
     "react": "^19",
@@ -55,16 +64,11 @@
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.24.1",
-    "@tailwindcss/typography": "latest",
     "uuid": "latest",
-    "js-yaml": "latest",
-    "highlight.js": "latest",
-    "marked": "latest",
-    "@azure/app-configuration": "latest",
-    "@azure/identity": "latest"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

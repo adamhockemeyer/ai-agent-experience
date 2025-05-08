@@ -25,13 +25,13 @@ resource appConfig 'Microsoft.AppConfiguration/configurationStores@2024-05-01' =
 }
 
 resource roleAssignmentsResource 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
-  for roleAssignment in roleAssignments: if (length(roleAssignment) > 0) {
+  for roleAssignment in roleAssignments: {
     name: guid(roleAssignment.principalId, roleAssignment.roleDefinitionId, appConfig.id)
     scope: appConfig
     properties: {
       roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', roleAssignment.roleDefinitionId)
       principalId: roleAssignment.principalId
-      principalType: 'ServicePrincipal'
+      principalType: roleAssignment.?principalType ?? 'ServicePrincipal'
     }
   }
 ]
@@ -45,7 +45,6 @@ resource configKeyValues 'Microsoft.AppConfiguration/configurationStores/keyValu
       value: keyValue.value
       contentType: keyValue.?contentType ?? null
       tags: keyValue.?tags ?? null
-      
     }
   }
 ]

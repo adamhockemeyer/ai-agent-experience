@@ -1,0 +1,10 @@
+# create a .env folder in the root of the project and add the following values
+@baseUrl = {{$dotenv APIM_ENDPOINT}}
+@apimSubscriptionKey = {{$dotenv APIM_SUBSCRIPTION_KEY}}
+
+
+### Fetch OpenAPI Spec from APIM
+
+GET {{baseUrl}}/docs/apis/azure-maps-weather-service?export=true&format=openapi&api-version=2022-09-01-preview  HTTP/1.1
+Ocp-Apim-Subscription-Key: {{apimSubscriptionKey}}
+

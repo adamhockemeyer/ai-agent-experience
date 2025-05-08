@@ -16,3 +16,52 @@ services:
     project: ./src/api-sap
     language: py
     host: function
+# hooks:
+#   postprovision:
+#       - windows:
+#           shell: pwsh
+#           run: |
+#             # Extract environment variables without quotes
+#             $storageName = $(azd env get-values --no-prompt | Select-String -Pattern "AZURE_STORAGE_ACCOUNT_NAME=(.+)" | ForEach-Object { $_.Matches.Groups[1].Value.Trim('"').Trim("'") })
+            
+#             # Upload documents to blob storage
+#             pwsh ./scripts/document_upload.ps1 -storage_account_name $storageName -blob_container_name "documents" -local_documents_path ".\documents"
+#           continueOnError: true
+#           interactive: true
+#       - windows:
+#           shell: pwsh
+#           run: |
+#             # Extract environment variables without quotes
+#             $searchName = $(azd env get-values --no-prompt | Select-String -Pattern "AZURE_SEARCH_SERVICE_NAME=(.+)" | ForEach-Object { $_.Matches.Groups[1].Value.Trim('"').Trim("'") })
+#             $openaiName = $(azd env get-values --no-prompt | Select-String -Pattern "AZURE_OPENAI_SERVICE_NAME=(.+)" | ForEach-Object { $_.Matches.Groups[1].Value.Trim('"').Trim("'") })
+#             $openaiEndpoint = "https://$openaiName.openai.azure.com/"
+            
+#             # Set up search indexes for each document folder
+#             pwsh ./scripts/setup_search_indexes.ps1 -embedding_deployment_name "embedding"
+#           continueOnError: true
+#           interactive: true
+        # - posix:
+        #     shell: sh
+        #     run: |
+        #       # Extract environment variables without quotes
+        #       storageName=$(azd env get-values --no-prompt | grep AZURE_STORAGE_ACCOUNT_NAME | cut -d '=' -f2 | tr -d '"' | tr -d "'")
+              
+        #       # Upload documents to blob storage
+        #       chmod +x ./scripts/document_upload.sh
+        #       ./scripts/document_upload.sh --storage-account-name "$storageName" --blob-container-name "documents" --local-documents-path "./documents"
+        #     continueOnError: true
+        #     interactive: true
+        # - posix:
+        #     shell: sh
+        #     run: |
+        #       # Extract environment variables without quotes
+        #       searchName=$(azd env get-values --no-prompt | grep AZURE_SEARCH_SERVICE_NAME | cut -d '=' -f2 | tr -d '"' | tr -d "'")
+        #       openaiName=$(azd env get-values --no-prompt | grep AZURE_OPENAI_SERVICE_NAME | cut -d '=' -f2 | tr -d '"' | tr -d "'")
+        #       openaiEndpoint="https://${openaiName}.openai.azure.com/"
+              
+        #       # Set up search indexes for each document folder
+        #       chmod +x ./scripts/setup_search_indexes.sh
+        #       ./scripts/setup_search_indexes.sh --embedding-deployment-name "embedding"
+        #     continueOnError: true
+        #     interactive: true
+

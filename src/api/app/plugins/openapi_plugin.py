@@ -3,18 +3,35 @@ import json
 import logging
 import httpx
 import yaml
+import re
 from typing import Dict, List, Any, Optional, Callable
 from opentelemetry import trace
 from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 
 from semantic_kernel.functions.kernel_plugin import KernelPlugin
 from semantic_kernel.connectors.openapi_plugin.openapi_function_execution_parameters import OpenAPIFunctionExecutionParameters
+from semantic_kernel.exceptions.function_exceptions import FunctionInitializationError
+from pydantic.errors import PydanticUserError
+from pydantic_core._pydantic_core import ValidationError
+
 from app.models import Tool, Authentication
 from app.plugins.base import PluginBase
 from app.services.openapi_spec_cache import OpenAPISpecCache
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
+
+class OpenAPIPluginError(Exception):
+    """Exception raised for OpenAPI plugin errors that should be shown to users."""
+    
+    def __init__(self, message: str, original_error: Optional[Exception] = None, 
+                 tool_id: str = "", tool_name: str = "", spec_url: str = ""):
+        self.message = message
+        self.original_error = original_error
+        self.tool_id = tool_id
+        self.tool_name = tool_name
+        self.spec_url = spec_url
+        super().__init__(self.message)
 
 class OpenAPIPluginHandler(PluginBase):
     """Handles OpenAPI plugins for AI Agents."""
@@ -37,9 +54,10 @@ class OpenAPIPluginHandler(PluginBase):
                 # Extract API specification URL
                 spec_url = tool.specUrl
                 if not spec_url:
-                    logger.error(f"Missing specUrl for OpenAPI tool: {tool.id}")
+                    error_msg = f"Missing OpenAPI specification URL for tool '{tool.name}'"
+                    logger.error(error_msg)
                     span.set_attribute("error", "missing_spec_url")
-                    return None
+                    raise OpenAPIPluginError(error_msg, tool_id=tool.id, tool_name=tool.name)
                 
                 span.set_attribute("spec_url", spec_url)
                 
@@ -51,8 +69,9 @@ class OpenAPIPluginHandler(PluginBase):
                 # Use the spec cache to fetch the spec
                 parsed_spec = await self._spec_cache.get_spec(spec_url, tool.authentications)
                 if not parsed_spec:
-                    logger.error(f"Failed to fetch or parse OpenAPI spec: {spec_url}")
-                    return None
+                    error_msg = f"Failed to fetch or parse OpenAPI spec from {spec_url}. Verify the URL is accessible and returns valid OpenAPI JSON or YAML."
+                    logger.error(error_msg)
+                    raise OpenAPIPluginError(error_msg, tool_id=tool.id, tool_name=tool.name, spec_url=spec_url)
                 
                 # Create OpenAPI execution parameters
                 execution_params = OpenAPIFunctionExecutionParameters(
@@ -65,11 +84,21 @@ class OpenAPIPluginHandler(PluginBase):
                 
                 # Create the plugin
                 plugin_name = tool.name.replace(" ", "")
-                kernel_plugin = KernelPlugin.from_openapi(
-                    plugin_name=plugin_name,
-                    openapi_parsed_spec=parsed_spec,
-                    execution_settings=execution_params
-                )
+                try:
+                    kernel_plugin = KernelPlugin.from_openapi(
+                        plugin_name=plugin_name,
+                        openapi_parsed_spec=parsed_spec,
+                        execution_settings=execution_params
+                    )
+                except FunctionInitializationError as e:
+                    # Extract useful information from the exception chain
+                    error_msg = self._extract_user_friendly_error(e, tool.name)
+                    logger.error(f"Failed to initialize OpenAPI plugin: {error_msg}", exc_info=True)
+                    raise OpenAPIPluginError(error_msg, original_error=e, tool_id=tool.id, tool_name=tool.name, spec_url=spec_url)
+                except Exception as e:
+                    error_msg = f"Failed to initialize OpenAPI plugin '{tool.name}': {str(e)}"
+                    logger.error(error_msg, exc_info=True)
+                    raise OpenAPIPluginError(error_msg, original_error=e, tool_id=tool.id, tool_name=tool.name, spec_url=spec_url)
                 
                 # Store for cleanup
                 self._plugins[tool.id] = {
@@ -80,10 +109,65 @@ class OpenAPIPluginHandler(PluginBase):
                 logger.info(f"Successfully initialized OpenAPI plugin: {tool.name}")
                 return kernel_plugin
                 
+            except OpenAPIPluginError:
+                # Re-raise our custom errors
+                raise
             except Exception as e:
-                logger.error(f"Failed to initialize OpenAPI plugin: {str(e)}", exc_info=True)
+                error_msg = f"Unexpected error initializing OpenAPI plugin '{tool.name}': {str(e)}"
+                logger.error(error_msg, exc_info=True)
                 span.record_exception(e)
-                return None
+                raise OpenAPIPluginError(error_msg, original_error=e, tool_id=tool.id, tool_name=tool.name, spec_url=tool.specUrl or "")
+                
+    def _extract_user_friendly_error(self, error: Exception, tool_name: str) -> str:
+        """Extract a user-friendly error message from exception chain."""
+        # Get the full error string to use in pattern matching
+        full_error_str = str(error)
+        
+        # Check for specific function name pattern errors - handle both direct and nested
+        if isinstance(error, FunctionInitializationError) or "KernelFunction failed to initialize" in full_error_str:
+            # Check for the function name error pattern in the raw error message
+            # This handles both ValidationError cases and when the error is re-wrapped
+            function_name_match = re.search(r'function\s+([A-Za-z0-9_.-]+\.[A-Za-z0-9_.-]+)', full_error_str)
+            if function_name_match:
+                invalid_function = function_name_match.group(1)
+                # If we found a function name with a hyphen, that's likely our issue
+                if '-' in invalid_function:
+                    return (f"Function name '{invalid_function}' in OpenAPI spec contains invalid characters. "
+                            f"Function names must only contain letters, numbers, and underscores (no hyphens). "
+                            f"Please update your OpenAPI spec to use compliant operation IDs.")
+            
+            # Look for validation error patterns deeper in the exception chain
+            cause = error.__cause__
+            if cause:
+                # Try to extract validation error details
+                if isinstance(cause, ValidationError):
+                    for error_item in cause.errors():
+                        if error_item.get("type") == "string_pattern_mismatch" and error_item.get("loc") == ("name",):
+                            invalid_name = error_item.get("input")
+                            if invalid_name:
+                                return (f"Function name '{invalid_name}' in OpenAPI spec contains invalid characters. " 
+                                        f"Function names must only contain letters, numbers, and underscores. "
+                                        f"Please update your OpenAPI spec to use compliant operation IDs.")
+                
+                # Also check the error message from the cause
+                cause_str = str(cause)
+                if "string_pattern_mismatch" in cause_str and "^[0-9A-Za-z_]+$" in cause_str:
+                    # Try to extract the function name from the error message
+                    name_match = re.search(r"input_value='([^']+)'", cause_str)
+                    if name_match:
+                        invalid_name = name_match.group(1)
+                        return (f"Function name '{invalid_name}' in OpenAPI spec contains invalid characters. " 
+                                f"Function names must only contain letters, numbers, and underscores. "
+                                f"Please update your OpenAPI spec to use compliant operation IDs.")
+            
+            # If we found KernelFunction failed message but couldn't extract specifics
+            if "KernelFunction failed to initialize: Failed to create KernelFunctionMetadata" in full_error_str:
+                return (f"The OpenAPI plugin '{tool_name}' could not be initialized due to invalid function names. "
+                       f"Function names in OpenAPI specs must only contain letters, numbers, and underscores. "
+                       f"Please check your OpenAPI spec for operation IDs with hyphens or other special characters.")
+                
+        # Generic user-friendly message with original error
+        return f"Error initializing OpenAPI plugin '{tool_name}': {full_error_str}"
     
     async def get_kernel_plugin(self, plugin: Any) -> Optional[KernelPlugin]:
         """Return the plugin for Semantic Kernel."""
