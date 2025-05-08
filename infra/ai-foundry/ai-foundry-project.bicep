@@ -44,19 +44,17 @@ resource foundryProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01
   }
 }
 
-
-
-resource capabilityHosts_Agent 'Microsoft.MachineLearningServices/workspaces/capabilityHosts@2025-01-01-preview' = {
-  parent: foundryProject
-  name: '${name}-capabilityHosts-Agent'
-  properties: {
-    capabilityHostKind: 'Agents'
-    aiServicesConnections: aiServicesConnectionName
-  }
-  dependsOn: [
-    hub
-  ]
-}
+// resource capabilityHosts_Agent 'Microsoft.MachineLearningServices/workspaces/capabilityHosts@2025-01-01-preview' = {
+//   parent: foundryProject
+//   name: '${name}-capabilityHosts-Agent'
+//   properties: {
+//     capabilityHostKind: 'Agents'
+//     aiServicesConnections: aiServicesConnectionName
+//   }
+//   dependsOn: [
+//     hub
+//   ]
+// }
 
 // @description('This module assigns the specified role to the AI Foundry Project resource')
 // module roleAssignment '../auth/role-assignment.bicep' = [
@@ -72,3 +70,4 @@ resource capabilityHosts_Agent 'Microsoft.MachineLearningServices/workspaces/cap
 output id string = foundryProject.id
 output name string = foundryProject.name
 output principalId string = foundryProject.identity.principalId
+output connectionString string = '${location}.api.azureml.ms;${subscription().subscriptionId};${resourceGroup().name};${name}'

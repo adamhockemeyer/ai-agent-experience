@@ -8,6 +8,7 @@ from opentelemetry import trace
 from app.models import Agent
 from app.agents.agent_factory import AgentFactory
 from app.plugins.plugin_manager import PluginManager
+from app.plugins.openapi_plugin import OpenAPIPluginError
 from app.services.kernel_factory import KernelFactory
 from app.services.thread_storage import ThreadStorage
 from app.services.function_call_stream import FunctionCallStream
@@ -44,7 +45,18 @@ class ChatService:
             try:
                 async with PluginManager() as plugin_manager:
                     # Initialize plugins for this agent
-                    plugins = await plugin_manager.initialize_plugins(agent)
+                    try:
+                        plugins = await plugin_manager.initialize_plugins(agent)
+                    except OpenAPIPluginError as ope:
+                        # Format a user-friendly error message for OpenAPI plugin issues
+                        error_message = self._format_openapi_error(ope)
+                        logger.error(f"OpenAPI plugin error: {error_message}")
+                        span.set_attribute("error", "openapi_plugin_error")
+                        span.set_attribute("error.message", ope.message)
+                        span.set_attribute("error.tool_id", ope.tool_id)
+                        span.set_attribute("error.tool_name", ope.tool_name)
+                        yield error_message
+                        return
                     
                     # Check for existing thread first to make decisions about agent creation
                     thread_id = None
@@ -173,3 +185,7 @@ class ChatService:
                 # Clean up function call stream
                 if agent.displayFunctionCallStatus:
                     FunctionCallStream.cleanup(session_id)
+    
+    def _format_openapi_error(self, error: OpenAPIPluginError) -> str:
+        """Format OpenAPI plugin error into a user-friendly message."""
+        return f"Error with OpenAPI plugin '{error.tool_name}' (ID: {error.tool_id}): {error.message}"

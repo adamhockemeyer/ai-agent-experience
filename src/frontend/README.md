@@ -8,7 +8,7 @@ The following environment variables are required to run the frontend application
 
 | Variable Name | Description | Required |
 |---------------|-------------|----------|
-| `NEXT_PUBLIC_CHAT_API_ENDPOINT` | URL of the backend API service that handles chat requests. Used to connect the frontend chat UI to the backend service. | Yes |
+| `CHAT_API_ENDPOINT` | URL of the backend API service that handles chat requests. Used to connect the frontend chat UI to the backend service. | Yes |
 | `AZURE_APPCONFIG_ENDPOINT` | Endpoint URL for Azure App Configuration service. Used to access agent configurations stored in Azure App Configuration. | Yes* |
 | `AZURE_APP_CONFIG_CONNECTION_STRING` | Connection string for Azure App Configuration. Alternative to AZURE_APPCONFIG_ENDPOINT when running outside of Azure. | No** |
 

@@ -6,12 +6,45 @@
     "configurations": [
         {
             "name": "Next.js: Frontend",
-            "type": "node-terminal",
+            "type": "node",
             "request": "launch",
-            "command": "npm run dev",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "dev"
+            ],
             "cwd": "${workspaceFolder}/src/frontend/app",
             "sourceMaps": true,
-            "trace": true
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**"
+            ],
+            "skipFiles": [
+                "<node_internals>/**",
+                "**/node_modules/**"
+            ],
+            "serverReadyAction": {
+                "pattern": "- Local:.+(https?://\\S+)",
+                "uriFormat": "%s",
+                "action": "debugWithEdge"
+            },
+            "outFiles": [
+                "${workspaceFolder}/src/frontend/app/.next/server/**/*.js"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "NODE_OPTIONS": "--inspect"
+            }
+        },
+        {
+            "name": "Next.js: Browser",
+            "type": "msedge",
+            "request": "launch",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}/src/frontend/app",
+            "sourceMapPathOverrides": {
+                "webpack://_N_E/*": "${webRoot}/*"
+            }
         },
         {
             "name": "Python FastAPI",
@@ -36,6 +69,14 @@
             "name": "Next.JS Frontend & Python FastAPI",
             "configurations": [
                 "Next.js: Frontend",
+                "Python FastAPI"
+            ]
+        },
+        {
+            "name": "Full Stack (Server + Browser + API)",
+            "configurations": [
+                "Next.js: Frontend",
+                "Next.js: Browser",
                 "Python FastAPI"
             ]
         }

@@ -273,7 +273,7 @@ class CosmosDbThreadStorage(ThreadStorage[T]):
                         'id': session_id,
                         self.partition_key: session_id,
                         'thread': serialized_thread,
-                        '_ttl': self.ttl_seconds
+                        'ttl': self.ttl_seconds
                     }
                     
                     # Upsert the document
@@ -293,7 +293,7 @@ class CosmosDbThreadStorage(ThreadStorage[T]):
                 'id': session_id,
                 self.partition_key: session_id,
                 'thread': serialized_thread,
-                '_ttl': self.ttl_seconds
+                'ttl': self.ttl_seconds
             }
             
             # Upsert the document

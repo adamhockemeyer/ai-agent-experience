@@ -118,7 +118,7 @@ export async function validateOpenApiSpec(
     const fetchOptions: RequestInit = {
       method: "GET",
       headers: {
-        Accept: "application/json, application/yaml, */*",
+        Accept: "*/*",
       },
       // Use longer timeout
       signal: AbortSignal.timeout(30000), // 30 second timeout
@@ -209,6 +209,40 @@ export async function validateOpenApiSpec(
         success: false,
         error: "Spec is missing the 'paths' field. This doesn't appear to be a valid OpenAPI specification.",
       }
+    }
+    
+    // Validate operation IDs against the regex pattern
+    const operationIdRegex = /^[0-9A-Za-z_]+$/;
+    const invalidOperationIds: string[] = [];
+    
+    // Check all paths and methods for operationId compliance
+    const paths = specData.paths;
+    for (const path in paths) {
+      if (Object.prototype.hasOwnProperty.call(paths, path)) {
+        const pathItem = paths[path];
+        // HTTP methods to check
+        const methods = ["get", "post", "put", "delete", "patch", "options", "head", "trace"];
+        
+        for (const method of methods) {
+          if (pathItem[method] && pathItem[method].operationId) {
+            const operationId = pathItem[method].operationId;
+            if (!operationIdRegex.test(operationId)) {
+              invalidOperationIds.push(`'${operationId}' in ${method.toUpperCase()} ${path}`);
+            }
+          }
+        }
+      }
+    }
+    
+    // If any invalid operation IDs were found, return error
+    if (invalidOperationIds.length > 0) {
+      const errorMessage = `OpenAPI spec contains operation IDs with invalid characters: ${invalidOperationIds.join(', ')}. 
+        Only alphanumeric characters and underscores are allowed in operation IDs, matching the regex ^[0-9A-Za-z_]+$`;
+      console.error(errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+      };
     }
 
     console.log("OpenAPI spec validation successful")

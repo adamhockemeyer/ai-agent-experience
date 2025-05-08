@@ -101,7 +101,7 @@ class AgentFactory:
         
         try:
             creds = DefaultAzureCredential()
-            client = AzureAIAgent.create_client(credential=creds)
+            client = AzureAIAgent.create_client(credential=creds, conn_str=get_settings().azure_ai_agent_project_connection_string)
             
             # Check if foundryAgentId is provided
             if hasattr(agent_config, 'foundryAgentId') and agent_config.foundryAgentId:

@@ -52,7 +52,6 @@ resource search 'Microsoft.Search/searchServices@2025-02-01-preview' = {
     replicaCount: replicaCount
     partitionCount: partitionCount
     hostingMode: hostingMode
-    
   }
 }
 
