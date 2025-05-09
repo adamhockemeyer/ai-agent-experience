@@ -81,7 +81,7 @@ Requirements
 1. Authenticate Azure Developer CLI
 
     ```shell
-    azd auth login [--tenant-id]
+    azd auth login [tenant-id]
     ```
 
 1.  Run the following command to build, deploy & configure the sample
