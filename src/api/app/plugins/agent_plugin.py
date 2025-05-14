@@ -21,7 +21,7 @@ class AgentPluginHandler(PluginBase):
             endpoint=get_settings().azure_app_config_endpoint
         )
     
-    async def initialize(self, tool: Tool) -> Any:
+    async def initialize(self, tool: Tool, plugin_manager=None) -> Any:
         """Initialize an agent as a plugin using the agent ID."""
         if tool.type != "Agent":
             return None
@@ -44,11 +44,14 @@ class AgentPluginHandler(PluginBase):
             plugins = []
             if agent_config.tools:
                 try:
-                    # Import here to avoid circular imports
-                    from app.plugins.plugin_manager import PluginManager
-                    async with PluginManager() as plugin_manager:
+                    # Use the provided plugin_manager if available, else create a new one
+                    if plugin_manager is not None:
                         plugins = await plugin_manager.initialize_plugins(agent_config)
-                        logger.info(f"Initialized {len(plugins)} plugins for nested agent: {agent_id}")
+                    else:
+                        from app.plugins.plugin_manager import PluginManager
+                        async with PluginManager() as new_plugin_manager:
+                            plugins = await new_plugin_manager.initialize_plugins(agent_config)
+                    logger.info(f"Initialized {len(plugins)} plugins for nested agent: {agent_id}")
                 except Exception as e:
                     logger.error(f"Error initializing plugins for nested agent {agent_id}: {str(e)}")
             

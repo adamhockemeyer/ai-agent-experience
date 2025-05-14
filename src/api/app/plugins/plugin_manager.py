@@ -37,8 +37,12 @@ class PluginManager:
             if tool.type in self._plugin_handlers:
                 handler = self._plugin_handlers[tool.type]
                 try:
-                    # Initialize the plugin with the tool configuration
-                    plugin_data = await handler.initialize(tool)
+                    # Pass self to AgentPluginHandler for nested plugin management
+                    # This resolves an issue where sub-agents were being initialized and then cleaned up immediately
+                    if tool.type == "Agent":
+                        plugin_data = await handler.initialize(tool, plugin_manager=self)
+                    else:
+                        plugin_data = await handler.initialize(tool)
                     if plugin_data:
                         # Store both the handler and the plugin data for cleanup
                         self._active_plugins.append((handler, plugin_data))
