@@ -34,17 +34,18 @@ var sapAgentConfig = {
       type: 'OpenAPI'
       id: 'tool_1'
       name: 'SAP Data API'
-      specUrl: '${sapFunctionApp.properties.defaultHostName}/api/swagger.json'
+      specUrl: 'https://${sapFunctionApp.properties.defaultHostName}/api/swagger.json'
       authentications: [
         {
           type: 'Header'
           headerName: 'x-functions-key'
-          headerValue: sapFunctionApp.listKeys().keys[0].value
+          headerValue: listKeys('${sapFunctionApp.id}/host/default', sapFunctionApp.apiVersion).functionKeys.default
         }
       ]
     }
   ]
   requireJsonResponse: false
+  displayFunctionCallStatus: true
 }
 
 // Convert the object to a JSON string and encode it to base64 to avoid escaping issues

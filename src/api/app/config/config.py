@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     
     # OpenAPI plugin cache configuration
     openapi_cache_enabled: bool = True
-    openapi_cache_ttl_seconds: int = 3600  # 1 hour default TTL
+    openapi_cache_ttl_seconds: int = 90  # 1 hour default TTL
     openapi_cache_refresh_interval_seconds: int = 300  # 5 minutes default refresh interval
 
     model_config = ConfigDict(
