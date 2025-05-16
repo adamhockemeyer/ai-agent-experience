@@ -21,6 +21,7 @@ param commonTags object = {
   created_by: 'bicep'
   project: 'AI Agent Experience'
   'azd-env-name': environmentName
+  SecurityControl: 'Ignore'
 }
 param apimPublisherEmail string = 'user@company.com'
 param apiAppExists bool = false
