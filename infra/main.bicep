@@ -298,15 +298,24 @@ module playwrightAgentConfig 'app-configuration/agent_playwright_agent_config.bi
   }
 }
 
-// module sapAgentConfig 'app-configuration/agent_sap_agent_config.bicep' = {
-//   name: '${prefix}-sap-agent-config'
-//   params: {
-//     appConfigName: appConfig.outputs.name
-//     sapFunctionAppName: sapDemoAPIFunctionApp.outputs.name
-//     location: location
-//     identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
-//   }
-// }
+module sapAgentConfig 'app-configuration/agent_sap_agent_config.bicep' = {
+  name: '${prefix}-sap-agent-config'
+  params: {
+    appConfigName: appConfig.outputs.name
+    sapFunctionAppName: sapDemoAPIFunctionApp.outputs.name
+    location: location
+    identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+  }
+}
+
+module orchestratorAgentConfig 'app-configuration/agent_orchestrator_agent_config.bicep' = {
+  name: '${prefix}-orchestrator-agent-config'
+  params: {
+    appConfigName: appConfig.outputs.name
+    location: location
+    identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+  }
+}
 
 module search 'ai-search/search.bicep' = {
   name: '${prefix}-search'

@@ -31,7 +31,7 @@ var playwrightAgentConfig = {
       id: 'tool_1'
       name: 'Playwright MCP'
       specUrl: ''
-      mcpDefinition: '{\n  "mcpServers": {\n    "playwright": {\n      "command": "npx",\n      "args": [\n        "@playwright/mcp@latest",\n        "--headless"\n      ]\n    }\n  }\n}'
+      mcpDefinition: '{\n  "mcpServers": {\n    "playwright": {\n      "command": "npx",\n      "args": [\n        "@playwright/mcp@latest",\n        "--headless",\n        "--no-sandbox",\n      ]\n    }\n  }\n}'
       authentications: [
         {
           type: 'Anonymous'
