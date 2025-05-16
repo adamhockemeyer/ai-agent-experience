@@ -41,7 +41,7 @@ class OpenAPIPluginHandler(PluginBase):
         self._plugins = {}  # Track created plugins for cleanup
         self._spec_cache = OpenAPISpecCache.get_instance()
     
-    async def initialize(self, tool: Tool) -> Any:
+    async def initialize(self, tool: Tool, agent_id=None, **kwargs) -> Any:
         """Initialize an OpenAPI plugin from tool configuration."""
         if tool.type != "OpenAPI":
             return None
@@ -89,7 +89,7 @@ class OpenAPIPluginHandler(PluginBase):
                         plugin_name=plugin_name,
                         openapi_parsed_spec=parsed_spec,
                         execution_settings=execution_params
-                    )
+                    )                
                 except FunctionInitializationError as e:
                     # Extract useful information from the exception chain
                     error_msg = self._extract_user_friendly_error(e, tool.name)
@@ -100,13 +100,14 @@ class OpenAPIPluginHandler(PluginBase):
                     logger.error(error_msg, exc_info=True)
                     raise OpenAPIPluginError(error_msg, original_error=e, tool_id=tool.id, tool_name=tool.name, spec_url=spec_url)
                 
-                # Store for cleanup
-                self._plugins[tool.id] = {
+                # Store with compound key
+                plugin_key = f"{agent_id}:{tool.id}" if agent_id else tool.id
+                self._plugins[plugin_key] = {
                     "plugin": kernel_plugin,
                     "name": plugin_name
                 }
                 
-                logger.info(f"Successfully initialized OpenAPI plugin: {tool.name}")
+                logger.info(f"Successfully initialized OpenAPI plugin: {tool.name}{' for agent: ' + agent_id if agent_id else ''}")
                 return kernel_plugin
                 
             except OpenAPIPluginError:
@@ -177,14 +178,21 @@ class OpenAPIPluginHandler(PluginBase):
     async def cleanup(self, plugin: Any) -> None:
         """Clean up resources used by the plugin."""
         # Find and remove from tracking
-        plugin_id = None
-        for pid, info in self._plugins.items():
+        plugin_key = None
+        for key, info in self._plugins.items():
             if info["plugin"] == plugin:
-                plugin_id = pid
+                plugin_key = key
                 break
                 
-        if plugin_id:
-            del self._plugins[plugin_id]
+        if plugin_key:
+            # Extract agent info for logging
+            agent_info = ""
+            if ":" in plugin_key:
+                agent_id = plugin_key.split(":", 1)[0]
+                agent_info = f" for agent {agent_id}"
+                
+            del self._plugins[plugin_key]
+            logger.info(f"Cleaned up OpenAPI plugin{agent_info}")
     
     def _create_auth_callback(self, authentications: List[Authentication]) -> Optional[Callable]:
         """Create authentication callback function for OpenAPI requests."""
