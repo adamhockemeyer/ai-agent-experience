@@ -24,11 +24,13 @@ class MCPPluginHandler(PluginBase):
         self._plugins = {}  # Track created plugins for cleanup
         self.settings = get_settings()
     
-    async def initialize(self, tool: Tool) -> Any:
+    async def initialize(self, tool: Tool, agent_id=None, **kwargs) -> Any:
         """Initialize an MCP plugin from tool configuration."""
         with tracer.start_as_current_span("initialize_mcp_plugin") as span:
             span.set_attribute("tool_id", tool.id)
             span.set_attribute("tool_name", tool.name)
+            if agent_id:
+                span.set_attribute("agent_id", agent_id)
             
             # Check if MCP plugins are enabled in settings
             if not self.settings.mcp_enable_plugins:
@@ -64,12 +66,13 @@ class MCPPluginHandler(PluginBase):
                         command = server_config.get("command")
                         args = server_config.get("args", []) 
                         plugin = self._create_local_mcp_plugin(command, args, plugin_name, description)
-                        logger.info(f"Creating local MCP plugin for '{plugin_name}' with command: {command} {' '.join(args)}")
+                        logger.info(f"Creating local MCP plugin for '{plugin_name}' with command: {command} {' '.join(args)}")                
                 else:
                     # Fallback to direct config access
                     plugin_name = tool.name
                     description = config.get("description", f"MCP plugin for {tool.name}")
                     
+                    # Process direct config (should be indented inside the else block)
                     if config.get("type") == "remote":
                         plugin = self._create_remote_mcp_plugin(config, plugin_name, description)
                         logger.info(f"Creating remote MCP plugin for '{plugin_name}'")
@@ -80,12 +83,14 @@ class MCPPluginHandler(PluginBase):
                         logger.info(f"Creating local MCP plugin for '{plugin_name}' with command: {command} {' '.join(args)}")
                 
                 # Connect to the MCP server
-                logger.info(f"Connecting to MCP server for tool: {tool.id}")
+                logger.info(f"Connecting to MCP server for tool: {tool.id}{' in agent: ' + agent_id if agent_id else ''}")
                 await plugin.connect()
-                logger.info(f"Successfully connected to MCP server for tool: {tool.id}")
+                logger.info(f"Successfully connected to MCP server for tool: {tool.id}{' in agent: ' + agent_id if agent_id else ''}")
                 
-                # Store for cleanup
-                self._plugins[tool.id] = plugin
+                # Store for cleanup with compound key
+                plugin_key = f"{agent_id}:{tool.id}" if agent_id else tool.id
+                logger.debug(f"Storing MCP plugin with key: {plugin_key}")
+                self._plugins[plugin_key] = plugin
                 return plugin
                 
             except Exception as e:
@@ -169,31 +174,36 @@ class MCPPluginHandler(PluginBase):
                     return path
                     
         return "npx"  # Fall back to letting the system resolve it
-        
+    
     async def get_kernel_plugin(self, plugin: Any) -> Any:
         """Return the MCP plugin for Semantic Kernel."""
         return plugin
-        
+    
     async def cleanup(self, plugin: Any) -> None:
         """Close the MCP plugin connection."""
         if not plugin:
             return
             
         try:
-            # Find and remove from tracking 
-            plugin_id = None
-            for pid, p in self._plugins.items():
+            # Find and remove from tracking using value lookup
+            plugin_key = None
+            for key, p in self._plugins.items():
                 if p == plugin:
-                    plugin_id = pid
+                    plugin_key = key
                     break
                     
-            if plugin_id:
-                del self._plugins[plugin_id]
+            if plugin_key:
+                # Extract agent info for logging
+                agent_info = ""
+                if ":" in plugin_key:
+                    agent_id = plugin_key.split(":", 1)[0]
+                    agent_info = f" for agent {agent_id}"
+                    del self._plugins[plugin_key]
                 
-            # Clean up plugin resources
-            if hasattr(plugin, 'close'):
-                await plugin.close()
-                logger.info(f"Cleaned up MCP plugin")
+                # Clean up plugin resources
+                if hasattr(plugin, 'close'):
+                    await plugin.close()
+                    logger.info(f"Cleaned up MCP plugin{agent_info}")
             
         except Exception as e:
             logger.error(f"Error cleaning up MCP plugin: {str(e)}", exc_info=True)

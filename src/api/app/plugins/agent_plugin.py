@@ -21,18 +21,18 @@ class AgentPluginHandler(PluginBase):
             endpoint=get_settings().azure_app_config_endpoint
         )
     
-    async def initialize(self, tool: Tool, plugin_manager=None) -> Any:
+    async def initialize(self, tool: Tool, plugin_manager=None, agent_id=None, **kwargs) -> Any:
         """Initialize an agent as a plugin using the agent ID."""
         if tool.type != "Agent":
             return None
             
         try:
-            agent_id = tool.id
-            logger.info(f"Initializing agent plugin with ID: {agent_id}")
+            nested_agent_id = tool.id
+            logger.info(f"Initializing agent plugin with ID: {nested_agent_id}{' for parent agent: ' + agent_id if agent_id else ''}")
             
             # Get agent configuration
             try:
-                agent_config = await self._config_client.get(key=agent_id, model_type=Agent, prefix="agent:")
+                agent_config = await self._config_client.get(key=nested_agent_id, model_type=Agent, prefix="agent:")
             except Exception as e:
                 logger.error(f"Error retrieving agent configuration: {str(e)}")
                 return None
@@ -58,12 +58,14 @@ class AgentPluginHandler(PluginBase):
             # Create agent with its plugins
             agent, thread = await AgentFactory.create_agent(kernel, agent_config, plugins)
             
-            # Store reference for cleanup
-            self._agent_plugins[agent_id] = {
+            # Store reference with compound key
+            plugin_key = f"{agent_id}:{tool.id}" if agent_id else tool.id
+            self._agent_plugins[plugin_key] = {
                 "agent": agent,
                 "kernel": kernel,
                 "thread": thread
             }
+            logger.debug(f"Stored agent plugin with key: {plugin_key}")
             
             # Return the agent itself - Semantic Kernel agents implement KernelPlugin interface
             return agent
@@ -89,21 +91,27 @@ class AgentPluginHandler(PluginBase):
             return
         
         try:
-            # Find the agent ID
-            agent_id = None
-            for aid, info in self._agent_plugins.items():
+            # Find the agent using value lookup
+            plugin_key = None
+            for key, info in self._agent_plugins.items():
                 if info["agent"] == agent:
-                    agent_id = aid
+                    plugin_key = key
                     break
             
-            if agent_id:
+            if plugin_key:
+                # Extract agent info for logging
+                agent_info = ""
+                if ":" in plugin_key:
+                    parent_agent_id = plugin_key.split(":", 1)[0]
+                    agent_info = f" from parent agent {parent_agent_id}"
+                
                 # Clean up the agent
                 if hasattr(agent, "cleanup"):
                     await agent.cleanup()
                 
                 # Remove from cache
-                del self._agent_plugins[agent_id]
-                logger.info(f"Cleaned up agent plugin: {agent_id}")
+                del self._agent_plugins[plugin_key]
+                logger.info(f"Cleaned up agent plugin: {plugin_key.split(':')[-1]}{agent_info}")
                 
         except Exception as e:
             logger.error(f"Error cleaning up agent plugin: {str(e)}", exc_info=True)

@@ -28,7 +28,7 @@ class PluginManager:
         """Context manager exit with proper plugin cleanup"""
         await self.cleanup_all_plugins()
         return False  # Do not suppress exceptions
-        
+    
     async def initialize_plugins(self, agent: Agent) -> List[Any]:
         """Initialize all plugins defined in agent configuration."""
         plugins = []
@@ -37,12 +37,13 @@ class PluginManager:
             if tool.type in self._plugin_handlers:
                 handler = self._plugin_handlers[tool.type]
                 try:
-                    # Pass self to AgentPluginHandler for nested plugin management
+                    # Pass both plugin_manager and agent_id to all handlers
                     # This resolves an issue where sub-agents were being initialized and then cleaned up immediately
+                    # and ensures plugins have unique keys across different agents
                     if tool.type == "Agent":
-                        plugin_data = await handler.initialize(tool, plugin_manager=self)
+                        plugin_data = await handler.initialize(tool, plugin_manager=self, agent_id=agent.id)
                     else:
-                        plugin_data = await handler.initialize(tool)
+                        plugin_data = await handler.initialize(tool, agent_id=agent.id)
                     if plugin_data:
                         # Store both the handler and the plugin data for cleanup
                         self._active_plugins.append((handler, plugin_data))
