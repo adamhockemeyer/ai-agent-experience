@@ -10,10 +10,8 @@ class Settings(BaseSettings):
     azure_app_config_endpoint: str 
     azure_app_config_connection_string: str = ""
     azure_tracing_gen_ai_content_recording_enabled: bool = False
-    semantickernel_experimental_genai_enable_otel_diagnostics_sensitive: bool = False
-
-    # AI Foundry
-    azure_ai_agent_project_connection_string: str = ""
+    semantickernel_experimental_genai_enable_otel_diagnostics_sensitive: bool = False    # AI Foundry
+    azure_ai_agent_endpoint: str = ""
     
     # Thread storage configuration
     thread_storage_type: str = "memory"  # Options: "memory", "redis", "cosmosdb"

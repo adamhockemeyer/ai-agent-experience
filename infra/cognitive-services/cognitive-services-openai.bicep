@@ -3,11 +3,12 @@ param name string
 param commonTags object = {}
 param roleAssignments array = []
 
-resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
   name: name
   location: location
   kind: 'AIServices'
   properties: {
+    allowProjectManagement: true
     customSubDomainName: name
     publicNetworkAccess: 'Enabled'
   }

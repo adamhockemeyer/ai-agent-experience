@@ -79,16 +79,14 @@ class AgentFactory:
                     arguments=KernelArguments(settings=kernel_settings),
                     plugins=plugins
                 )
-            
-            # Create a thread object to maintain the conversation state
+              # Create a thread object to maintain the conversation state
             thread: ChatHistoryAgentThread = ChatHistoryAgentThread()
-            
             return chat_agent, thread
             
         except Exception as e:
             logger.error(f"Error creating ChatCompletionAgent: {str(e)}", exc_info=True)
             raise
-        
+    
     @staticmethod
     async def _create_azure_ai_agent(
         kernel: Kernel, 
@@ -101,18 +99,22 @@ class AgentFactory:
         
         try:
             creds = DefaultAzureCredential()
-            client = AzureAIAgent.create_client(credential=creds, conn_str=get_settings().azure_ai_agent_project_connection_string)
+            # Use the client creation pattern with endpoint
+            agents_client = AzureAIAgent.create_client(
+                credential=creds, 
+                endpoint=get_settings().azure_ai_agent_endpoint
+            )
             
             # Check if foundryAgentId is provided
             if hasattr(agent_config, 'foundryAgentId') and agent_config.foundryAgentId:
                 try:
-                    # Try to get existing agent
-                    agent_definition = await client.agents.get_agent(agent_id=agent_config.foundryAgentId)
+                    # Try to get existing agent using the new API pattern
+                    agent_definition = await agents_client.agents.get_agent(agent_id=agent_config.foundryAgentId)
                     logger.info(f"Retrieved existing agent with ID: {agent_config.foundryAgentId}")
                 except Exception as e:
-                    # If retrieval fails, create a new agent
+                    # If retrieval fails, create a new agent using the correct API pattern
                     logger.warning(f"Failed to retrieve agent with ID {agent_config.foundryAgentId}: {str(e)}")
-                    agent_definition = await client.agents.create_agent(
+                    agent_definition = await agents_client.agents.create_agent(
                         model=agent_config.modelSelection.model,
                         name=agent_config.id,
                         instructions=agent_config.systemPrompt
@@ -120,7 +122,7 @@ class AgentFactory:
                     logger.info(f"Created new agent with ID: {agent_definition.id}")
             else:
                 # No foundryAgentId provided, create a new agent
-                agent_definition = await client.agents.create_agent(
+                agent_definition = await agents_client.agents.create_agent(
                     model=agent_config.modelSelection.model,
                     name=agent_config.id,
                     instructions=agent_config.systemPrompt
@@ -130,7 +132,7 @@ class AgentFactory:
             # Create a Semantic Kernel agent using the Azure AI agent service
             azure_ai_agent = AzureAIAgent(
                 arguments=KernelArguments(settings=kernel_settings),
-                client=client,
+                client=agents_client,
                 definition=agent_definition,
                 kernel=kernel,
                 plugins=plugins
@@ -139,11 +141,11 @@ class AgentFactory:
             # Create a thread object for AzureAIAgent
             # If thread_id is provided, use that existing thread during initialization
             if thread_id:
-                thread = AzureAIAgentThread(client=client, thread_id=thread_id)
+                thread = AzureAIAgentThread(client=agents_client, thread_id=thread_id)
                 logger.info(f"Using existing thread with ID: {thread_id}")
             else:
                 # Create a new thread
-                thread = AzureAIAgentThread(client=client)
+                thread = AzureAIAgentThread(client=agents_client)
                 logger.info(f"Created new thread for AzureAIAgent")
             
             return azure_ai_agent, thread

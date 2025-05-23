@@ -70,4 +70,7 @@ resource foundryProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01
 output id string = foundryProject.id
 output name string = foundryProject.name
 output principalId string = foundryProject.identity.principalId
+// Legacy connection string format - retained for backward compatibility
 output connectionString string = '${location}.api.azureml.ms;${subscription().subscriptionId};${resourceGroup().name};${name}'
+// New endpoint format required for Semantic Kernel 1.31.0+
+output endpoint string = 'https://${name}.services.ai.azure.com/api/projects/${name}'

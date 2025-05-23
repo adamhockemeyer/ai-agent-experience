@@ -12,7 +12,7 @@ param resourcePrefix string = '${substring(uniqueString(resourceGroup().id),0,4)
 // Ensure the prefix starts with a letter for resource naming compliance
 var prefix = contains('abcdefghijklmnopqrstuvwxyz', toLower(substring(resourcePrefix, 0, 1)))
   ? resourcePrefix
-  : 'a${substring(resourcePrefix, 1, length(resourcePrefix) - 1)}'
+  : 'a${resourcePrefix}'
 
 @description('Array of OpenAI model deployments to create. If empty, default models will be used.')
 param openAIDeployments array = []
@@ -258,7 +258,6 @@ module appConfig 'app-configuration/app-configuration.bicep' = {
         principalType: 'User'
         roleDefinitionId: sharedRoleDefinitions['App Configuration Data Owner']
       }
-
     ]
   }
 }
@@ -417,15 +416,6 @@ module containerRegistry 'container-apps/container-registry.bicep' = {
   }
 }
 
-resource apimService 'Microsoft.ApiManagement/service@2024-05-01' existing = {
-  name: apimName
-}
-
-resource apimSubscription 'Microsoft.ApiManagement/service/subscriptions@2023-09-01-preview' existing = {
-  name: apimSubscriptionName
-  parent: apimService
-}
-
 module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
   name: '${prefix}-api-container-app'
   params: {
@@ -445,10 +435,6 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
         value: userAssignedManagedIdentity.properties.clientId
       }
       {
-        name: 'AZURE_APP_CONFIG_ENDPOINT'
-        value: appConfig.outputs.endpoint
-      }
-      {
         name: 'AZURE_APPLICATION_INSIGHTS_CONNECTION_STRING'
         value: applicationInsights.outputs.connectionString
       }
@@ -461,8 +447,8 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
         value: 'https://${cognitiveServices1.outputs.name}.services.ai.azure.com/models'
       }
       {
-        name: 'AZURE_AI_AGENT_PROJECT_CONNECTION_STRING'
-        value: aiFoundryProject.outputs.connectionString
+        name: 'AZURE_AI_AGENT_PROJECT_ENDPOINT'
+        value: aiFoundryProject.outputs.endpoint
       }
       {
         name: 'SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS'
@@ -587,14 +573,117 @@ module aiFoundryRoleAssignment 'auth/ai-service-role-assignments.bicep' = {
   }
 }
 
+// AI Project and Capability Host
+module aiProject 'cognitive-services/ai-project.bicep' = {
+  name: '${prefix}-ai-project'
+  params: {
+    location: location
+    accountName: cognitiveServices1.outputs.name
+    projectName: '${prefix}-ai-project'
+    projectDescription: 'AI Project for Agent Experience'
+    displayName: 'AI Agent Experience Project'
+
+    // Connect to existing resources
+    aiSearchName: search.outputs.name
+    aiSearchServiceResourceGroupName: resourceGroup().name
+    aiSearchServiceSubscriptionId: subscription().subscriptionId
+
+    cosmosDBName: cosmosDB.outputs.cosmosDbAccountName
+    cosmosDBResourceGroupName: resourceGroup().name
+    cosmosDBSubscriptionId: subscription().subscriptionId
+
+    azureStorageName: storageAccount.outputs.storageAccountName
+    azureStorageResourceGroupName: resourceGroup().name
+    azureStorageSubscriptionId: subscription().subscriptionId
+  }
+}
+
+module formatProjectWorkspaceId 'cognitive-services/format-project-workspace-id.bicep' = {
+  name: '${prefix}-format-project-workspace-id-deployment'
+  params: {
+    projectWorkspaceId: aiProject.outputs.projectWorkspaceId
+  }
+}
+
+// Create role assignments for the AI Project's managed identity
+module aiProjectRoleAssignmentStorage 'auth/role-assignment.bicep' = {
+  name: '${prefix}-ai-project-role-storage'
+  params: {
+    principalId: aiProject.outputs.projectPrincipalId
+    roleDefinitionId: sharedRoleDefinitions['Storage Blob Data Contributor']
+  }
+}
+
+module aiProjectRoleAssignmentSearch 'auth/role-assignment.bicep' = {
+  name: '${prefix}-ai-project-role-search'
+  params: {
+    principalId: aiProject.outputs.projectPrincipalId
+    roleDefinitionId: sharedRoleDefinitions['Search Service Contributor']
+  }
+}
+
+module aiProjectRoleAssignmentCosmosOperator 'auth/role-assignment.bicep' = {
+  name: '${prefix}-ai-project-role-cosmos-operator'
+  params: {
+    principalId: aiProject.outputs.projectPrincipalId
+    roleDefinitionId: sharedRoleDefinitions['Cosmos DB Operator']
+  }
+}
+
+module aiProjectCapabilityHost 'cognitive-services/project-capability-host.bicep' = {
+  name: '${prefix}-ai-project-capability-host'
+  params: {
+    accountName: cognitiveServices1.outputs.name
+    projectName: aiProject.outputs.projectName
+    projectCapHost: '${prefix}-agent-host'
+    accountCapHost: '${prefix}-agent-host-account'
+    cosmosDBConnection: aiProject.outputs.cosmosDBConnection
+    azureStorageConnection: storageAccount.outputs.storageAccountName
+    aiSearchConnection: search.outputs.name
+  }
+  dependsOn: [
+    aiProjectRoleAssignmentStorage
+    aiProjectRoleAssignmentSearch
+    aiProjectRoleAssignmentCosmosOperator
+  ]
+}
+
+// The Storage Blob Data Owner role must be assigned before the caphost is created
+module storageContainersRoleAssignment 'auth/blob-storage-container-role-assignments.bicep' = {
+  name: '${prefix}-storage-containers-deployment'
+  scope: resourceGroup(subscription().subscriptionId, resourceGroup().name)
+  params: {
+    aiProjectPrincipalId: aiProject.outputs.projectPrincipalId
+    storageName: storageAccount.outputs.storageAccountName
+    workspaceId: formatProjectWorkspaceId.outputs.projectWorkspaceIdGuid
+  }
+  dependsOn: [
+    aiProjectCapabilityHost
+  ]
+}
+
+module aiProjectRoleAssignmentCosmos 'auth/cosmos-sql-role-assignment.bicep' = {
+  name: '${prefix}-ai-project-role-cosmos'
+  params: {
+    principalId: aiProject.outputs.projectPrincipalId
+    roleDefinitionId: sharedRoleDefinitions['Cosmos DB Built-in Data Contributor']
+    cosmosDbAccountName: cosmosDB.outputs.cosmosDbAccountName
+  }
+  dependsOn: [
+    aiProjectCapabilityHost, storageContainersRoleAssignment
+  ]
+}
+
 module vectorizationRoleAssignments './auth/ai-search-vectorization-assignments.bicep' = {
   name: 'ai-search-vectorization-role-assignments'
   params: {
-    principals: [ 
-      { principalId: az.deployer().objectId, principalType: 'User' } 
+    principals: [
+      { principalId: az.deployer().objectId, principalType: 'User' }
     ]
   }
 }
+
+
 
 // App outputs
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
@@ -605,8 +694,19 @@ output API_BASE_URL string = apiContainerApp.outputs.uri
 output REACT_APP_WEB_BASE_URL string = webContainerApp.outputs.uri
 output SERVICE_API_NAME string = apiContainerApp.outputs.name
 output SERVICE_WEB_NAME string = webContainerApp.outputs.name
+
+// AI Foundry outputs
 output AI_FOUNDRY_HUB_NAME string = aiFoundryHub.outputs.name
 output AI_FOUNDRY_PROJECT_NAME string = aiFoundryProject.outputs.name
+output AI_FOUNDRY_PROJECT_ENDPOINT string = aiFoundryProject.outputs.endpoint
+output AI_FOUNDRY_CONNECTION_STRING string = aiFoundryProject.outputs.connectionString
+
+// AI Project outputs
+output AI_PROJECT_NAME string = aiProject.outputs.projectName
+output AI_PROJECT_ID string = aiProject.outputs.projectId
+output AI_PROJECT_ENDPOINT string = 'https://${cognitiveServices1.outputs.name}.services.ai.azure.com/api/projects/${aiProject.outputs.projectName}'
+
+
 output AZURE_STORAGE_ACCOUNT_NAME string = storageAccount.outputs.storageAccountName
 output AZURE_SEARCH_SERVICE_NAME string = search.outputs.name
 output AZURE_OPENAI_ENDPOINT string = cognitiveServices1.outputs.endpoint
