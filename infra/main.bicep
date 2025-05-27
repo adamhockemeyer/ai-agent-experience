@@ -448,7 +448,11 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
       }
       {
         name: 'AZURE_AI_AGENT_PROJECT_ENDPOINT'
-        value: aiFoundryProject.outputs.endpoint
+        value: aiProject.outputs.projectEndpoint
+      }
+      {
+        name: 'AZURE_APP_CONFIG_ENDPOINT'
+        value: appConfig.outputs.endpoint
       }
       {
         name: 'SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS'
@@ -595,7 +599,7 @@ module aiProject 'cognitive-services/ai-project.bicep' = {
     azureStorageName: storageAccount.outputs.storageAccountName
     azureStorageResourceGroupName: resourceGroup().name
     azureStorageSubscriptionId: subscription().subscriptionId
-    
+
     // Connect to App Insights
     appInsightsName: applicationInsights.outputs.name
     appInsightsResourceGroupName: resourceGroup().name
@@ -643,8 +647,8 @@ module aiProjectCapabilityHost 'cognitive-services/project-capability-host.bicep
     projectCapHost: '${prefix}-agent-host'
     accountCapHost: '${prefix}-agent-host-account'
     cosmosDBConnection: aiProject.outputs.cosmosDBConnection
-    azureStorageConnection: storageAccount.outputs.storageAccountName
-    aiSearchConnection: search.outputs.name
+    azureStorageConnection: aiProject.outputs.azureStorageConnection
+    aiSearchConnection: aiProject.outputs.aiSearchConnection
   }
   dependsOn: [
     aiProjectRoleAssignmentStorage
@@ -675,7 +679,8 @@ module aiProjectRoleAssignmentCosmos 'auth/cosmos-sql-role-assignment.bicep' = {
     cosmosDbAccountName: cosmosDB.outputs.cosmosDbAccountName
   }
   dependsOn: [
-    aiProjectCapabilityHost, storageContainersRoleAssignment
+    aiProjectCapabilityHost
+    storageContainersRoleAssignment
   ]
 }
 
@@ -688,7 +693,20 @@ module vectorizationRoleAssignments './auth/ai-search-vectorization-assignments.
   }
 }
 
-
+module logicAppStandard 'logic-apps/logic-app-standard.bicep' = {
+  name: '${prefix}-logicapp-standard'
+  params: {
+    name: '${prefix}-logicapp'
+    location: location
+    tags: commonTags
+    storageAccountName: storageAccount.outputs.storageAccountName
+    storageAccountResourceGroup: resourceGroup().name
+    appInsightsName: applicationInsights.outputs.name
+    appInsightsResourceGroup: resourceGroup().name
+    planName: '${prefix}-logicapp-plan'
+    userAssignedIdentityResourceId: userAssignedManagedIdentity.id
+  }
+}
 
 // App outputs
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
@@ -710,7 +728,6 @@ output AI_FOUNDRY_CONNECTION_STRING string = aiFoundryProject.outputs.connection
 output AI_PROJECT_NAME string = aiProject.outputs.projectName
 output AI_PROJECT_ID string = aiProject.outputs.projectId
 output AI_PROJECT_ENDPOINT string = 'https://${cognitiveServices1.outputs.name}.services.ai.azure.com/api/projects/${aiProject.outputs.projectName}'
-
 
 output AZURE_STORAGE_ACCOUNT_NAME string = storageAccount.outputs.storageAccountName
 output AZURE_SEARCH_SERVICE_NAME string = search.outputs.name

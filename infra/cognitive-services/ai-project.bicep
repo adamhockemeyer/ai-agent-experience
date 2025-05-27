@@ -119,6 +119,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
 output projectName string = project.name
 output projectId string = project.id
 output projectPrincipalId string = project.identity.principalId
+output projectEndpoint string = project.properties.endpoints['AI Foundry API']
 
 #disable-next-line BCP053
 output projectWorkspaceId string = project.properties.internalId

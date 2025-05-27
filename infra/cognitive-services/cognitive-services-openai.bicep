@@ -19,6 +19,7 @@ resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2025-04-
   identity: {
     type: 'SystemAssigned'
   }
+  
 }
 
 resource roleAssignmentsResource 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
