@@ -16,6 +16,10 @@ param azureStorageName string
 param azureStorageSubscriptionId string
 param azureStorageResourceGroupName string
 
+param appInsightsName string
+param appInsightsSubscriptionId string
+param appInsightsResourceGroupName string
+
 resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' existing = {
   name: aiSearchName
   scope: resourceGroup(aiSearchServiceSubscriptionId, aiSearchServiceResourceGroupName)
@@ -27,6 +31,11 @@ resource cosmosDBAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-previ
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
   name: azureStorageName
   scope: resourceGroup(azureStorageSubscriptionId, azureStorageResourceGroupName)
+}
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
+  name: appInsightsName
+  scope: resourceGroup(appInsightsSubscriptionId, appInsightsResourceGroupName)
 }
 
 resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
@@ -88,6 +97,23 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     }
   }
 
+  // Creates the Azure Foundry connection to your Azure App Insights resource
+  resource connection 'connections@2025-04-01-preview' = {
+    name: appInsightsName
+    properties: {
+      category: 'AppInsights'
+      target: appInsights.id
+      authType: 'ApiKey'
+      isSharedToAll: true
+      credentials: {
+        key: appInsights.properties.ConnectionString
+      }
+      metadata: {
+        ApiType: 'Azure'
+        ResourceId: appInsights.id
+      }
+    }
+  }
 }
 
 output projectName string = project.name

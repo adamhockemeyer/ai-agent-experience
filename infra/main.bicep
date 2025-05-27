@@ -595,6 +595,11 @@ module aiProject 'cognitive-services/ai-project.bicep' = {
     azureStorageName: storageAccount.outputs.storageAccountName
     azureStorageResourceGroupName: resourceGroup().name
     azureStorageSubscriptionId: subscription().subscriptionId
+    
+    // Connect to App Insights
+    appInsightsName: applicationInsights.outputs.name
+    appInsightsResourceGroupName: resourceGroup().name
+    appInsightsSubscriptionId: subscription().subscriptionId
   }
 }
 
