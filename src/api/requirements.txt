@@ -2,7 +2,6 @@ fastapi[standard]
 uvicorn
 httpx
 semantic-kernel[azure,mcp]==1.31.0
-azure-ai-ag
 azure-appconfiguration>=1.4.0
 azure-identity>=1.14.0
 opentelemetry-api>=1.20.0
