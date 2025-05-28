@@ -447,7 +447,7 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
         value: 'https://${cognitiveServices1.outputs.name}.services.ai.azure.com/models'
       }
       {
-        name: 'AZURE_AI_AGENT_PROJECT_ENDPOINT'
+        name: 'AZURE_AI_AGENT_ENDPOINT'
         value: aiProject.outputs.projectEndpoint
       }
       {
@@ -682,6 +682,15 @@ module aiProjectRoleAssignmentCosmos 'auth/cosmos-sql-role-assignment.bicep' = {
     aiProjectCapabilityHost
     storageContainersRoleAssignment
   ]
+}
+
+// Managed Identity to Agent Service Role Assignment
+module aiUserRoleAssignmentUAMI 'auth/role-assignment.bicep' = {
+  name: '${prefix}-ai-user-role-managed-identity'
+  params: {
+    principalId: userAssignedManagedIdentity.properties.principalId
+    roleDefinitionId: sharedRoleDefinitions['Azure AI User']
+  }
 }
 
 module vectorizationRoleAssignments './auth/ai-search-vectorization-assignments.bicep' = {

@@ -11,5 +11,6 @@
     "Azure AI Developer": "64702f94-c441-49e6-a78b-ef80e0188fee",
     "Storage Blob Data Contributor": "ba92f5b4-2d11-453d-a403-e96b0029c9fe",
     "Search Service Contributor": "7ca78c08-252a-4471-8644-bb5ff32d4ba0",
-    "Cosmos DB Operator": "230815da-be43-4aae-9cb4-875f7bd000aa"
+    "Cosmos DB Operator": "230815da-be43-4aae-9cb4-875f7bd000aa",
+    "Azure AI User": "53ca6127-db72-4b80-b1b0-d745d6d5456d"
 }
