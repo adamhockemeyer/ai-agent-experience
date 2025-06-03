@@ -47,12 +47,12 @@ async def chat(
         
         # Call the chat service to get the streaming response
         async def stream_response():
-            try:
-                # Get the streaming response from chat service
+            try:                # Get the streaming response from chat service
                 async for chunk in chat_service.chat(
                     session_id=request.session_id,
                     agent=agent,
-                    user_input=request.input
+                    user_input=request.input,
+                    attachments=request.attachments
                 ):
                     # # Extract the string content from the StreamingChatMessageContent object
                     if hasattr(chunk, 'content'):

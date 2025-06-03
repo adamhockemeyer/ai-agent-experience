@@ -37,8 +37,35 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(undefined)
   const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Define allowed file types and max size (5MB)
+  const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"]
+  const MAX_FILE_SIZE_MB = 5
+  const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
+  // Utility function to validate file
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    // Check file type
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      return {
+        valid: false,
+        error: `File type not supported. Please upload ${ALLOWED_FILE_TYPES.map(t => t.replace('image/', '')).join(', ')} images only.`
+      }
+    }
+
+    // Check file size
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return {
+        valid: false,
+        error: `File is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`
+      }
+    }
+
+    return { valid: true }
+  }
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -65,6 +92,9 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
 
   const handleSendMessage = async () => {
     if (!input.trim() && attachments.length === 0) return
+
+    // Clear any file errors when sending a message
+    setFileError(null)
 
     // If there are streamed responses, add them as a bot message to the chat history
     if (streamedResponses.length > 0) {
@@ -180,14 +210,50 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newAttachments: Attachment[] = Array.from(e.target.files).map((file) => ({
-        id: uuidv4(),
-        name: file.name,
-        type: file.type,
-        url: URL.createObjectURL(file),
-      }))
+      // Reset any previous errors
+      setFileError(null)
 
-      setAttachments((prev) => [...prev, ...newAttachments])
+      const files = Array.from(e.target.files);
+
+      // Validate files first
+      for (const file of files) {
+        const { valid, error } = validateFile(file);
+        if (!valid) {
+          setFileError(error || "Invalid file");
+          // Reset the file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+          return;
+        }
+      }
+
+      // If all files are valid, create an array to store the promises for file reading
+      const fileReadPromises = files.map((file) => {
+        return new Promise<Attachment>((resolve) => {
+          const reader = new FileReader()
+
+          reader.onload = (event) => {
+            // The result contains the base64 data URL
+            const base64Data = event.target?.result as string
+
+            resolve({
+              id: uuidv4(),
+              name: file.name,
+              type: file.type,
+              url: base64Data, // This will be in the format "data:image/jpeg;base64,..."
+            })
+          }
+
+          // Read the file as a data URL (base64)
+          reader.readAsDataURL(file)
+        })
+      })
+
+      // Wait for all files to be processed
+      Promise.all(fileReadPromises).then((newAttachments) => {
+        setAttachments((prev) => [...prev, ...newAttachments])
+      })
     }
   }
 
@@ -408,6 +474,16 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
 
       {/* Input area */}
       <div className="p-4 border-t">
+        {fileError && (
+          <div className="mb-2 p-2 bg-destructive/10 text-destructive rounded-md text-sm flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            {fileError}
+          </div>
+        )}
         <div className="relative">
           <Textarea
             value={input}
@@ -420,13 +496,21 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
           <div className="absolute right-2 bottom-2 flex items-center gap-2">
             {agent.fileUpload && (
               <>
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" multiple />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  multiple
+                  accept={ALLOWED_FILE_TYPES.join(',')}
+                />
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isLoading}
+                  title="Attach images"
                 >
                   <PaperclipIcon className="h-4 w-4" />
                 </Button>

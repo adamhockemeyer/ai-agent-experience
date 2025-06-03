@@ -49,7 +49,6 @@ class AgentFactory:
                 return await AgentFactory._create_chat_completion_agent(
                     kernel, agent_config, kernel_settings, plugins, service
                 )
-    
     @staticmethod
     async def _create_chat_completion_agent(
         kernel: Kernel, 
@@ -60,7 +59,7 @@ class AgentFactory:
     ) -> Tuple[ChatCompletionAgent, Optional[ChatHistoryAgentThread]]:
         """Create a ChatCompletionAgent."""
         
-        try:
+        try:    
             # Create agent with the plugins, passing service directly if available
             if service:
                 chat_agent = ChatCompletionAgent(
