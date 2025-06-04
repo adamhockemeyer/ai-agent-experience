@@ -38,12 +38,43 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
   const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
+  const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Define allowed file types and max size (5MB)
-  const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"]
-  const MAX_FILE_SIZE_MB = 5
+  // Define allowed file types and max size (10MB)
+  const ALLOWED_FILE_TYPES = [
+    // Images
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+    // Documents
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    // Text files
+    "text/plain",
+    "text/csv",
+    "text/html",
+    "text/markdown",
+    "application/json",
+    "application/xml",
+    // Code files
+    "text/javascript",
+    "text/css",
+    "application/javascript",
+    "text/x-python",
+    "text/x-java-source",
+    "text/x-c",
+    "text/x-c++",
+    // Archives
+    "application/zip",
+    "application/x-tar",
+    "application/gzip"
+  ]
+  const MAX_FILE_SIZE_MB = 10
   const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
   // Utility function to validate file
@@ -52,7 +83,7 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
       return {
         valid: false,
-        error: `File type not supported. Please upload ${ALLOWED_FILE_TYPES.map(t => t.replace('image/', '')).join(', ')} images only.`
+        error: `File type '${file.type}' not supported. Please upload supported document, image, or text files.`
       }
     }
 
@@ -66,6 +97,44 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
 
     return { valid: true }
   }
+
+  // Handle paste event for files
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!agent.fileUpload) return;
+    const items = e.clipboardData.items;
+    let foundFile = false;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === 'file') {
+        foundFile = true;
+        const file = item.getAsFile();
+        if (file) {
+          const { valid, error } = validateFile(file);
+          if (!valid) {
+            setFileError(error || 'Invalid file');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64Data = event.target?.result as string;
+            setAttachments((prev) => [
+              ...prev,
+              {
+                id: uuidv4(),
+                name: file.name,
+                type: file.type,
+                url: base64Data,
+              },
+            ]);
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    }
+    if (foundFile) {
+      e.preventDefault(); // Prevent default paste for files
+    }
+  };
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -279,6 +348,64 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
   // Check if chat is empty (no user messages yet)
   const isChatEmpty = messages.length === 0
 
+  // Handle drag events for file/image drop
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!agent.fileUpload) return;
+    setIsDragActive(true);
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!agent.fileUpload) return;
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+    if (!agent.fileUpload) return;
+    setFileError(null);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    // Validate files first
+    for (const file of files) {
+      const { valid, error } = validateFile(file);
+      if (!valid) {
+        setFileError(error || 'Invalid file');
+        return;
+      }
+    }
+    // If all files are valid, create an array to store the promises for file reading
+    const fileReadPromises = files.map((file) => {
+      return new Promise<Attachment>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64Data = event.target?.result as string;
+          resolve({
+            id: uuidv4(),
+            name: file.name,
+            type: file.type,
+            url: base64Data,
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+    Promise.all(fileReadPromises).then((newAttachments) => {
+      setAttachments((prev) => [...prev, ...newAttachments]);
+    });
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Chat messages */}
@@ -457,6 +584,17 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
           <div className="flex flex-wrap gap-2">
             {attachments.map((attachment) => (
               <div key={attachment.id} className="flex items-center gap-2 bg-muted p-2 rounded-md">
+                {attachment.type && attachment.type.startsWith('image/') ? (
+                  <img
+                    src={attachment.url}
+                    alt={attachment.name}
+                    className="w-6 h-6 object-cover rounded-sm border"
+                  />
+                ) : (
+                  <div className="w-6 h-6 bg-primary/10 rounded-sm border flex items-center justify-center">
+                    <FileText className="h-3 w-3 text-primary" />
+                  </div>
+                )}
                 <span className="text-sm truncate max-w-[150px]">{attachment.name}</span>
                 <Button
                   variant="ghost"
@@ -473,7 +611,13 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
       )}
 
       {/* Input area */}
-      <div className="p-4 border-t">
+      <div
+        className={`p-4 border-t relative${isDragActive ? ' ring-2 ring-primary/60 bg-primary/5' : ''}`}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+      >
         {fileError && (
           <div className="mb-2 p-2 bg-destructive/10 text-destructive rounded-md text-sm flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
@@ -489,6 +633,7 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder="Type your message..."
             className="min-h-[60px] resize-none pr-20"
             disabled={isLoading}
@@ -510,7 +655,7 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
                   className="h-8 w-8"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isLoading}
-                  title="Attach images"
+                  title="Attach files"
                 >
                   <PaperclipIcon className="h-4 w-4" />
                 </Button>

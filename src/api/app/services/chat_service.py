@@ -15,6 +15,7 @@ from app.plugins.openapi_plugin import OpenAPIPluginError
 from app.services.kernel_factory import KernelFactory
 from app.services.thread_storage import ThreadStorage
 from app.services.function_call_stream import FunctionCallStream
+from app.services.file_processor import FileProcessor
 from app.config.config import get_settings
 
 # Semantic Kernel imports for multimodal support
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 class ChatService:
     def __init__(self, thread_storage: ThreadStorage):
         self.thread_storage = thread_storage
+        self.file_processor = FileProcessor()
         
     async def chat(self, session_id: str, agent: Agent, user_input: str, attachments: Optional[List[Attachment]] = None) -> AsyncGenerator[str, None]:
         """Process a chat request and generate a streaming response with optional attachments."""
@@ -98,90 +100,15 @@ class ChatService:
                             thread = existing_thread
                         else:
                             logger.warning(f"Existing thread type {type(existing_thread)} not compatible with {type(thread)}, using new thread")
-                    
-                    # Create a queue for merging content and function call events
+                      # Create a queue for merging content and function call events
                     merged_queue = asyncio.Queue()
                     
                     # Define a task to process the content stream
                     async def process_content_stream():
                         nonlocal thread
                         try:
-                            # Check if we need to use multimodal processing
-                            use_multimodal = attachments and self._is_vision_capable_model(agent.modelSelection.model)                            # Create a ChatMessageContent object with the user's input
-                            content_items = []
-                            content_items.append(TextContent(text=user_input))
-                            image_attachments_processed = 0
-                            
-                            # Process image attachments if the model supports vision
-                            if use_multimodal and attachments:
-                                try:
-                                    # Process image attachments
-                                    for idx, attachment in enumerate(attachments):
-                                        if attachment.type.startswith('image/'):
-                                            try:
-                                                # For data URLs from the frontend
-                                                if attachment.url.startswith('data:') and ';base64,' in attachment.url:
-                                                    # Split the URL to ensure proper formatting
-                                                    url_parts = attachment.url.split(';base64,', 1)
-                                                    if len(url_parts) == 2:
-                                                        mime_part = url_parts[0]
-                                                        base64_data = url_parts[1]
-                                                        
-                                                        # Clean up the MIME part to ensure it's exactly "data:image/type"
-                                                        mime_type = mime_part.replace('data:', '')
-                                                        
-                                                        # Extract just the base64 encoded data (without the data URL prefix)
-                                                        # And use it with data_format="base64"
-                                                        logger.info(f"Creating ImageContent with base64 data for {attachment.name}")
-                                                        image_content = ImageContent(
-                                                            data=base64_data,  # Just the base64 string, not the full data URI
-                                                            data_format="base64",  # Specify the data format as base64
-                                                            mime_type=mime_type  # The MIME type (like "image/jpeg")
-                                                        )
-                                                    else:
-                                                        logger.error(f"Invalid data URL format for {attachment.name}")
-                                                        continue
-
-                                                # For HTTP URLs
-                                                elif attachment.url.startswith('http'):
-                                                    # Use uri parameter instead of url for HTTP URLs
-                                                    image_content = ImageContent(uri=attachment.url)
-                                                    logger.info(f"Using HTTP URL for image {attachment.name}")
-
-                                                # For binary data or other formats
-                                                else:
-                                                    try:
-                                                        # Extract binary data and convert to base64 string
-                                                        binary_data = self._extract_base64_image_data(attachment.url)
-                                                        base64_str = base64.b64encode(binary_data).decode('ascii')
-                                                        
-                                                        # Use proper parameters according to documentation
-                                                        mime_type = attachment.type.split(';')[0] if attachment.type else "image/jpeg"
-                                                        image_content = ImageContent(
-                                                            data=base64_str,  # Base64 encoded string
-                                                            data_format="base64",  # Specify the format as base64
-                                                            mime_type=mime_type  # The MIME type
-                                                        )
-                                                        logger.info(f"Created ImageContent with base64 data for {attachment.name}")
-                                                    except Exception as extract_error:
-                                                        logger.error(f"Error creating ImageContent: {str(extract_error)}")
-                                                        continue
-                                                
-                                                # Add to the content items
-                                                content_items.append(image_content)
-                                                image_attachments_processed += 1
-                                                logger.info(f"Added image {idx+1}/{len(attachments)}: {attachment.name}")
-                                            except Exception as img_error:
-                                                # If there's an error processing the image, log it and skip this image
-                                                logger.error(f"Error processing image attachment {attachment.name}: {str(img_error)}")
-                                    
-                                    logger.info(f"Processed {image_attachments_processed} image attachments for multimodal input")
-                                except Exception as mm_error:
-                                    # If multimodal processing fails, fall back to text-only
-                                    logger.error(f"Error in multimodal processing: {str(mm_error)}")
-                                    # Reset content items to just the text input without image descriptions
-                                    content_items = [TextContent(text=user_input)]
-                                    logger.info("Using text-only content due to multimodal processing error")
+                            # Process user input and attachments
+                            content_items = await self._create_message_content_items(user_input, attachments or [], agent)
                             
                             # Create a ChatMessageContent with the role USER
                             chat_message = ChatMessageContent(role=AuthorRole.USER, items=content_items)
@@ -262,8 +189,7 @@ class ChatService:
                     
                     # Wait for both tasks to complete
                     await asyncio.gather(content_task, function_task)
-                    
-                    # Persist thread after successful completion
+                      # Persist thread after successful completion
                     if thread:
                         await self.thread_storage.save(session_id, thread)
                         logger.info(f"Saved thread for session {session_id}")
@@ -278,62 +204,86 @@ class ChatService:
                 if agent.displayFunctionCallStatus:
                     FunctionCallStream.cleanup(session_id)
 
+    async def _create_message_content_items(self, user_input: str, attachments: List[Attachment], agent: Agent) -> List[Union[TextContent, ImageContent]]:
+        """Create content items for chat messages from user input and attachments.
+        
+        This method processes both the user's text input and any file attachments to create
+        a complete list of content items (TextContent and ImageContent) that can be sent
+        to the chat agent. Images are converted to ImageContent when possible, while
+        documents are processed and included as text content.
+        
+        Args:
+            user_input: The user's text input
+            attachments: List of file attachments to process
+            agent: The agent configuration containing model information
+        
+        Returns:
+            List of content items (TextContent and ImageContent) for the chat message
+        """
+        content_items = []
+        
+        if not attachments:
+            content_items.append(TextContent(text=user_input))
+            return content_items
+        
+        processed_content_parts = []
+        image_attachments_processed = 0
+        document_attachments_processed = 0
+        
+        try:
+            for idx, attachment in enumerate(attachments):
+                logger.info(f"Processing attachment {idx+1}/{len(attachments)}: {attachment.name}")
+                
+                # Use FileProcessor to handle the attachment
+                processed_content, metadata = await self.file_processor.process_file_attachment(attachment)
+                
+                if metadata["type"] == "image":
+                    # For images, add as ImageContent (let the system error if model doesn't support it)
+                    try:
+                        mime_type = metadata["mime_type"].split(';')[0] if metadata["mime_type"] else "image/jpeg"
+                        image_content = ImageContent(
+                            data=processed_content,  # Base64 string from FileProcessor
+                            data_format="base64",
+                            mime_type=mime_type
+                        )
+                        content_items.append(image_content)
+                        image_attachments_processed += 1
+                        logger.info(f"Added image as ImageContent: {attachment.name}")
+                    except Exception as img_error:
+                        logger.error(f"Error creating ImageContent for {attachment.name}: {str(img_error)}")
+                        # Fall back to text description
+                        processed_content_parts.append(f"[Image: {attachment.name}]")
+                
+                elif metadata["type"] == "document":
+                    # For documents, add the markdown content to the text
+                    processed_content_parts.append(processed_content)
+                    document_attachments_processed += 1
+                    logger.info(f"Added document as text: {attachment.name}")
+                
+                elif metadata["type"] == "error":
+                    # Add error information to text
+                    processed_content_parts.append(processed_content)
+                    logger.warning(f"Error processing attachment {attachment.name}")
+        
+            # Combine user input with processed attachment content
+            if processed_content_parts:
+                combined_text = user_input + "\n\n" + "\n\n".join(processed_content_parts)
+            else:
+                combined_text = user_input
+            
+            content_items.insert(0, TextContent(text=combined_text))
+            
+            logger.info(f"Processed {image_attachments_processed} images and {document_attachments_processed} documents")
+        
+        except Exception as processing_error:
+            # If attachment processing fails, fall back to text-only with user input
+            logger.error(f"Error processing attachments: {str(processing_error)}")
+            content_items = [TextContent(text=user_input)]
+            logger.info("Using text-only content due to attachment processing error")
+        
+        return content_items
+
     def _format_openapi_error(self, error: OpenAPIPluginError) -> str:
         """Format OpenAPI plugin error into a user-friendly message."""
         return f"Error with OpenAPI plugin '{error.tool_name}' (ID: {error.tool_id}): {error.message}"
-        
-    def _is_vision_capable_model(self, model_name: str) -> bool:
-        """Assume model is vision-capable; rely on user knowledge or error handling elsewhere."""
-        # No hardcoded list; always return True. If the model is not vision-capable, error handling will occur downstream.
-        return True
-    
-    def _extract_base64_image_data(self, data_url: str) -> bytes:
-        """Extract binary image data from a base64 data URL."""
-        try:
-            # Check if this is a data URL
-            if data_url.startswith('data:'):
-                # Regular expression to extract base64 data from data URL
-                pattern = r'data:(?:image\/[^;]+);base64,(.+)'
-                match = re.match(pattern, data_url)
-                
-                if not match:
-                    # Try a more permissive pattern
-                    pattern = r'data:.*?;base64,(.+)'
-                    match = re.match(pattern, data_url)
-                    
-                if not match:
-                    raise ValueError(f"Invalid data URL format: {data_url[:50]}...")
-                    
-                base64_data = match.group(1)
-            else:
-                # Assume it's already a base64 string
-                base64_data = data_url
-            
-            # Remove any whitespace from the base64 string
-            base64_data = base64_data.strip()
-            
-            # Ensure the base64 data has valid padding
-            padding_needed = len(base64_data) % 4
-            if padding_needed > 0:
-                base64_data += '=' * (4 - padding_needed)
-            
-            # Decode the base64 data to binary
-            binary_data = base64.b64decode(base64_data)
-            return binary_data
-        
-        except Exception as e:
-            logger.error(f"Error extracting base64 data: {str(e)}")
-            raise
-        
-    def _log_image_url_debug(self, url: str, name: str):
-        """Log a debug sample of the image URL for troubleshooting."""
-        if url.startswith('data:'):
-            # For data URLs, log the format and first few chars of base64 data
-            parts = url.split(',', 1)
-            header = parts[0]
-            data_sample = parts[1][:30] + '...' if len(parts) > 1 else 'No data'
-            logger.debug(f"Image {name} URL format: {header}, data sample: {data_sample}")
-        else:
-            # For HTTP URLs, log the full URL (or truncate if very long)
-            log_url = url if len(url) < 100 else url[:97] + '...'
-            logger.debug(f"Image {name} URL: {log_url}")
+  

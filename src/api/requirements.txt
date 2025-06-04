@@ -12,3 +12,4 @@ azure-monitor-opentelemetry
 azure-monitor-opentelemetry-exporter>=1.0.0b35
 python-dotenv>=1.0.0
 redis
+markitdown[all]
