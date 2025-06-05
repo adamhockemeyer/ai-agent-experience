@@ -136,7 +136,7 @@ class AgentFactory:
                 kernel=kernel,
                 plugins=plugins
             )
-            
+
             # Create a thread object for AzureAIAgent
             # If thread_id is provided, use that existing thread during initialization
             if thread_id:
