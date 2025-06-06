@@ -3,6 +3,7 @@ import base64
 import logging
 import tempfile
 import os
+import io
 from typing import Optional, Dict, Any, Tuple, TYPE_CHECKING
 from pathlib import Path
 
@@ -95,7 +96,7 @@ class FileProcessor:
             "mime_type": attachment.type,
             "data_format": "base64"
         }
-    
+      
     async def _process_document(self, attachment: 'Attachment') -> Tuple[str, Dict[str, Any]]:
         """Process document attachments using MarkItDown."""
         if not self.markitdown:
@@ -114,36 +115,45 @@ class FileProcessor:
             
             file_data = base64.b64decode(base64_data)
             
-            # Create temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=self._get_file_extension(attachment.name)) as temp_file:
-                temp_file.write(file_data)
-                temp_file_path = temp_file.name
-            
+            # Try using BytesIO first (more efficient, no temp files)
             try:
-                # Process with MarkItDown
-                result = self.markitdown.convert(temp_file_path)
+                file_stream = io.BytesIO(file_data)
+                file_stream.name = attachment.name  # Some converters need a filename
+                result = self.markitdown.convert(file_stream)
                 markdown_content = result.text_content if hasattr(result, 'text_content') else str(result)
+                logger.debug(f"Successfully processed {attachment.name} using BytesIO")
+            except Exception as stream_error:
+                logger.debug(f"BytesIO approach failed for {attachment.name}, falling back to temp file: {stream_error}")
                 
-                # Add file information header
-                file_header = f"# File: {attachment.name}\n\n"
-                if attachment.type:
-                    file_header += f"**File Type:** {attachment.type}\n\n"
+                # Fallback to temporary file approach
+                with tempfile.NamedTemporaryFile(delete=False, suffix=self._get_file_extension(attachment.name)) as temp_file:
+                    temp_file.write(file_data)
+                    temp_file_path = temp_file.name
                 
-                full_content = file_header + markdown_content
-                
-                return full_content, {
-                    "type": "document",
-                    "file_name": attachment.name,
-                    "mime_type": attachment.type,
-                    "processed_format": "markdown"
-                }
-            
-            finally:
-                # Clean up temporary file
                 try:
-                    os.unlink(temp_file_path)
-                except Exception as cleanup_error:
-                    logger.warning(f"Could not clean up temp file {temp_file_path}: {cleanup_error}")
+                    result = self.markitdown.convert(temp_file_path)
+                    markdown_content = result.text_content if hasattr(result, 'text_content') else str(result)
+                    logger.debug(f"Successfully processed {attachment.name} using temporary file")
+                finally:
+                    # Clean up temporary file
+                    try:
+                        os.unlink(temp_file_path)
+                    except Exception as cleanup_error:
+                        logger.warning(f"Could not clean up temp file {temp_file_path}: {cleanup_error}")
+            
+            # Add file information header
+            file_header = f"# File: {attachment.name}\n\n"
+            if attachment.type:
+                file_header += f"**File Type:** {attachment.type}\n\n"
+            
+            full_content = file_header + markdown_content
+            
+            return full_content, {
+                "type": "document",
+                "file_name": attachment.name,
+                "mime_type": attachment.type,
+                "processed_format": "markdown"
+            }
         
         except Exception as e:
             logger.error(f"Error processing document {attachment.name}: {str(e)}")

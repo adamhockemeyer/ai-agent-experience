@@ -75,7 +75,8 @@ class ChatService:
                         if agent.agentType == "AzureAIAgent":
                             logger.info(f"Found saved AzureAIAgentThread with ID: {existing_thread.thread_id} for session {session_id}")
                             thread_id = existing_thread.thread_id
-                      # Create the agent using factory pattern - with thread_id if applicable
+                    
+                    # Create the agent using factory pattern - with thread_id if applicable
                     ai_agent_temp, thread_temp = await AgentFactory.create_agent(
                         kernel, 
                         agent, 
@@ -100,7 +101,8 @@ class ChatService:
                             thread = existing_thread
                         else:
                             logger.warning(f"Existing thread type {type(existing_thread)} not compatible with {type(thread)}, using new thread")
-                      # Create a queue for merging content and function call events
+                    
+                    # Create a queue for merging content and function call events
                     merged_queue = asyncio.Queue()
                     
                     # Define a task to process the content stream
@@ -108,7 +110,7 @@ class ChatService:
                         nonlocal thread
                         try:
                             # Process user input and attachments
-                            content_items = await self._create_message_content_items(user_input, attachments or [], agent)
+                            content_items = await self._create_message_content_items(user_input, attachments or [], agent, function_stream)
                             
                             # Create a ChatMessageContent with the role USER
                             chat_message = ChatMessageContent(role=AuthorRole.USER, items=content_items)
@@ -189,7 +191,8 @@ class ChatService:
                     
                     # Wait for both tasks to complete
                     await asyncio.gather(content_task, function_task)
-                      # Persist thread after successful completion
+                    
+                    # Persist thread after successful completion
                     if thread:
                         await self.thread_storage.save(session_id, thread)
                         logger.info(f"Saved thread for session {session_id}")
@@ -204,7 +207,7 @@ class ChatService:
                 if agent.displayFunctionCallStatus:
                     FunctionCallStream.cleanup(session_id)
 
-    async def _create_message_content_items(self, user_input: str, attachments: List[Attachment], agent: Agent) -> List[Union[TextContent, ImageContent]]:
+    async def _create_message_content_items(self, user_input: str, attachments: List[Attachment], agent: Agent, function_stream=None) -> List[Union[TextContent, ImageContent]]:
         """Create content items for chat messages from user input and attachments.
         
         This method processes both the user's text input and any file attachments to create
@@ -226,6 +229,18 @@ class ChatService:
             content_items.append(TextContent(text=user_input))
             return content_items
         
+        # Send initial status if function stream is available and there are attachments
+        overall_start_time = asyncio.get_event_loop().time()
+        if function_stream:
+            function_stream.add_function_call({
+                "type": "function_start",
+                "plugin": "FileProcessor",
+                "function": "process_attachments",
+                "arguments": {"count": len(attachments), "status": f"🔄 Processing {len(attachments)} attachment(s)..."},
+                "is_auto": "Manual",
+                "timestamp": overall_start_time
+            })
+        
         processed_content_parts = []
         image_attachments_processed = 0
         document_attachments_processed = 0
@@ -233,6 +248,20 @@ class ChatService:
         try:
             for idx, attachment in enumerate(attachments):
                 logger.info(f"Processing attachment {idx+1}/{len(attachments)}: {attachment.name}")
+                
+                # Record start time for duration calculation
+                start_time = asyncio.get_event_loop().time()
+                
+                # Send processing status to function stream if available
+                if function_stream:
+                    function_stream.add_function_call({
+                        "type": "function_start",
+                        "plugin": "FileProcessor",
+                        "function": f"process_file_{idx+1}",
+                        "arguments": {"filename": attachment.name, "progress": f"{idx+1}/{len(attachments)}"},
+                        "is_auto": "Manual",
+                        "timestamp": start_time
+                    })
                 
                 # Use FileProcessor to handle the attachment
                 processed_content, metadata = await self.file_processor.process_file_attachment(attachment)
@@ -248,7 +277,22 @@ class ChatService:
                         )
                         content_items.append(image_content)
                         image_attachments_processed += 1
+                        
                         logger.info(f"Added image as ImageContent: {attachment.name}")
+                        # Send completion status to function stream if available
+                        if function_stream:
+                            end_time = asyncio.get_event_loop().time()
+                            function_stream.add_function_call({
+                                "type": "function_end",
+                                "plugin": "FileProcessor",
+                                "function": f"process_file_{idx+1}",
+                                "status": "success",
+                                "result": f"✅ Image processed: {attachment.name}",
+                                "is_auto": "Manual",
+                                "timestamp": end_time,
+                                "start_timestamp": start_time
+                            })
+                            
                     except Exception as img_error:
                         logger.error(f"Error creating ImageContent for {attachment.name}: {str(img_error)}")
                         # Fall back to text description
@@ -258,7 +302,21 @@ class ChatService:
                     # For documents, add the markdown content to the text
                     processed_content_parts.append(processed_content)
                     document_attachments_processed += 1
+                    
                     logger.info(f"Added document as text: {attachment.name}")
+                    # Send completion status to function stream if available
+                    if function_stream:
+                        end_time = asyncio.get_event_loop().time()
+                        function_stream.add_function_call({
+                            "type": "function_end",
+                            "plugin": "FileProcessor",
+                            "function": f"process_file_{idx+1}",
+                            "status": "success",
+                            "result": f"✅ Document processed: {attachment.name}",
+                            "is_auto": "Manual",
+                            "timestamp": end_time,
+                            "start_timestamp": start_time
+                        })
                 
                 elif metadata["type"] == "error":
                     # Add error information to text
@@ -274,6 +332,20 @@ class ChatService:
             content_items.insert(0, TextContent(text=combined_text))
             
             logger.info(f"Processed {image_attachments_processed} images and {document_attachments_processed} documents")
+            
+            # Send final processing summary to function stream if available
+            if function_stream and (image_attachments_processed > 0 or document_attachments_processed > 0):
+                end_time = asyncio.get_event_loop().time()
+                function_stream.add_function_call({
+                    "type": "function_end",
+                    "plugin": "FileProcessor",
+                    "function": "process_attachments",
+                    "status": "success",
+                    "result": f"📁 Processing complete: {image_attachments_processed} images, {document_attachments_processed} documents",
+                    "is_auto": "Manual",
+                    "timestamp": end_time,
+                    "start_timestamp": overall_start_time
+                })
         
         except Exception as processing_error:
             # If attachment processing fails, fall back to text-only with user input
@@ -286,4 +358,3 @@ class ChatService:
     def _format_openapi_error(self, error: OpenAPIPluginError) -> str:
         """Format OpenAPI plugin error into a user-friendly message."""
         return f"Error with OpenAPI plugin '{error.tool_name}' (ID: {error.tool_id}): {error.message}"
-  
