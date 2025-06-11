@@ -41,8 +41,7 @@ class MCPPluginHandler(PluginBase):
                 logger.warning(f"No MCP definition found for tool: {tool.id}")
                 return None
                 
-            try:
-                # Parse MCP definition
+            try:                # Parse MCP definition
                 if isinstance(tool.mcpDefinition, str):
                     config = json.loads(tool.mcpDefinition)
                 else:
@@ -57,6 +56,9 @@ class MCPPluginHandler(PluginBase):
                     plugin_name = server_name
                     description = f"MCP plugin for {server_name}"
                     
+                    # Extract environment variables if present
+                    env_vars = server_config.get("env")
+                    
                     # Check if this is a remote MCP server
                     if server_config.get("type") == "remote":
                         plugin = self._create_remote_mcp_plugin(server_config, plugin_name, description)
@@ -65,21 +67,23 @@ class MCPPluginHandler(PluginBase):
                         # Default to local MCP plugin
                         command = server_config.get("command")
                         args = server_config.get("args", []) 
-                        plugin = self._create_local_mcp_plugin(command, args, plugin_name, description)
+                        plugin = self._create_local_mcp_plugin(command, args, plugin_name, description, env_vars)
                         logger.info(f"Creating local MCP plugin for '{plugin_name}' with command: {command} {' '.join(args)}")                
                 else:
                     # Fallback to direct config access
                     plugin_name = tool.name
                     description = config.get("description", f"MCP plugin for {tool.name}")
                     
-                    # Process direct config (should be indented inside the else block)
+                    # Extract environment variables if present
+                    env_vars = config.get("env")
+                      # Process direct config (should be indented inside the else block)
                     if config.get("type") == "remote":
                         plugin = self._create_remote_mcp_plugin(config, plugin_name, description)
                         logger.info(f"Creating remote MCP plugin for '{plugin_name}'")
                     else:
                         command = config.get("command")
                         args = config.get("args", [])
-                        plugin = self._create_local_mcp_plugin(command, args, plugin_name, description)
+                        plugin = self._create_local_mcp_plugin(command, args, plugin_name, description, env_vars)
                         logger.info(f"Creating local MCP plugin for '{plugin_name}' with command: {command} {' '.join(args)}")
                 
                 # Connect to the MCP server
@@ -99,7 +103,7 @@ class MCPPluginHandler(PluginBase):
                 return None
     
     def _create_local_mcp_plugin(self, command: str, args: List[str], 
-                                 name: str, description: str) -> MCPStdioPlugin:
+                                 name: str, description: str, env: Optional[Dict[str, str]] = None) -> MCPStdioPlugin:
         """Create a local MCP plugin that runs on the server."""
         if not command:
             raise ValueError(f"Missing command for MCP plugin: {name}")
@@ -111,12 +115,18 @@ class MCPPluginHandler(PluginBase):
                 command = npx_path
                 logger.info(f"Using npx from path: {npx_path}")
         
+        # Log environment variables if provided
+        if env:
+            logger.info(f"Setting environment variables for MCP plugin '{name}': {list(env.keys())}")
+            logger.debug(f"Environment variables for '{name}': {env}")
+        
         # Create the plugin instance with longer timeouts
         return MCPStdioPlugin(
             name=name,
             description=description,
             command=command,
             args=args,
+            env=env,
             connection_timeout=self.settings.mcp_timeout_seconds
         )
     
