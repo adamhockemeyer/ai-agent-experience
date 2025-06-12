@@ -79,8 +79,12 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
 
   // Utility function to validate file
   const validateFile = (file: File): { valid: boolean; error?: string } => {
-    // Check file type
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+    // Check file extension for markdown files (browsers sometimes don't set correct MIME type)
+    const fileName = file.name.toLowerCase()
+    const isMarkdownFile = fileName.endsWith('.md') || fileName.endsWith('.markdown')
+
+    // Check file type or if it's a markdown file by extension
+    if (!ALLOWED_FILE_TYPES.includes(file.type) && !isMarkdownFile) {
       return {
         valid: false,
         error: `File type '${file.type}' not supported. Please upload supported document, image, or text files.`
@@ -647,7 +651,7 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
                   onChange={handleFileUpload}
                   className="hidden"
                   multiple
-                  accept={ALLOWED_FILE_TYPES.join(',')}
+                  accept={`${ALLOWED_FILE_TYPES.join(',')}, .md, .markdown`}
                 />
                 <Button
                   variant="ghost"
