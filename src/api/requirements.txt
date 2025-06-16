@@ -1,7 +1,7 @@
 fastapi[standard]
 uvicorn
 httpx
-semantic-kernel[azure,mcp]==1.31.0
+semantic-kernel[azure,mcp]==1.33.0
 azure-appconfiguration>=1.4.0
 azure-identity>=1.14.0
 opentelemetry-api>=1.20.0
@@ -12,3 +12,4 @@ azure-monitor-opentelemetry
 azure-monitor-opentelemetry-exporter>=1.0.0b35
 python-dotenv>=1.0.0
 redis
+markitdown[all]

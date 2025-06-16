@@ -49,10 +49,17 @@ class Agent(BaseModel):
     
     model_config = ConfigDict(extra="allow")
 
+class Attachment(BaseModel):
+    id: str
+    name: str
+    type: str
+    url: str
+
 class ChatRequest(BaseModel):
     session_id: str
     agent_id: str
     input: str
+    attachments: Optional[List[Attachment]] = None
 
 class ChatResponse(BaseModel):
     session_id: str

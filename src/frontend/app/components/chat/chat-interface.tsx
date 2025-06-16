@@ -37,8 +37,108 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(undefined)
   const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
+  const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Define allowed file types and max size (10MB)
+  const ALLOWED_FILE_TYPES = [
+    // Images
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+    // Documents
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    // Text files
+    "text/plain",
+    "text/csv",
+    "text/html",
+    "text/markdown",
+    "application/json",
+    "application/xml",
+    // Code files
+    "text/javascript",
+    "text/css",
+    "application/javascript",
+    "text/x-python",
+    "text/x-java-source",
+    "text/x-c",
+    "text/x-c++",
+    // Archives
+    "application/zip",
+    "application/x-tar",
+    "application/gzip"
+  ]
+  const MAX_FILE_SIZE_MB = 10
+  const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
+  // Utility function to validate file
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    // Check file extension for markdown files (browsers sometimes don't set correct MIME type)
+    const fileName = file.name.toLowerCase()
+    const isMarkdownFile = fileName.endsWith('.md') || fileName.endsWith('.markdown')
+
+    // Check file type or if it's a markdown file by extension
+    if (!ALLOWED_FILE_TYPES.includes(file.type) && !isMarkdownFile) {
+      return {
+        valid: false,
+        error: `File type '${file.type}' not supported. Please upload supported document, image, or text files.`
+      }
+    }
+
+    // Check file size
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return {
+        valid: false,
+        error: `File is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`
+      }
+    }
+
+    return { valid: true }
+  }
+
+  // Handle paste event for files
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!agent.fileUpload) return;
+    const items = e.clipboardData.items;
+    let foundFile = false;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === 'file') {
+        foundFile = true;
+        const file = item.getAsFile();
+        if (file) {
+          const { valid, error } = validateFile(file);
+          if (!valid) {
+            setFileError(error || 'Invalid file');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64Data = event.target?.result as string;
+            setAttachments((prev) => [
+              ...prev,
+              {
+                id: uuidv4(),
+                name: file.name,
+                type: file.type,
+                url: base64Data,
+              },
+            ]);
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    }
+    if (foundFile) {
+      e.preventDefault(); // Prevent default paste for files
+    }
+  };
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -65,6 +165,9 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
 
   const handleSendMessage = async () => {
     if (!input.trim() && attachments.length === 0) return
+
+    // Clear any file errors when sending a message
+    setFileError(null)
 
     // If there are streamed responses, add them as a bot message to the chat history
     if (streamedResponses.length > 0) {
@@ -180,14 +283,50 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newAttachments: Attachment[] = Array.from(e.target.files).map((file) => ({
-        id: uuidv4(),
-        name: file.name,
-        type: file.type,
-        url: URL.createObjectURL(file),
-      }))
+      // Reset any previous errors
+      setFileError(null)
 
-      setAttachments((prev) => [...prev, ...newAttachments])
+      const files = Array.from(e.target.files);
+
+      // Validate files first
+      for (const file of files) {
+        const { valid, error } = validateFile(file);
+        if (!valid) {
+          setFileError(error || "Invalid file");
+          // Reset the file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+          return;
+        }
+      }
+
+      // If all files are valid, create an array to store the promises for file reading
+      const fileReadPromises = files.map((file) => {
+        return new Promise<Attachment>((resolve) => {
+          const reader = new FileReader()
+
+          reader.onload = (event) => {
+            // The result contains the base64 data URL
+            const base64Data = event.target?.result as string
+
+            resolve({
+              id: uuidv4(),
+              name: file.name,
+              type: file.type,
+              url: base64Data, // This will be in the format "data:image/jpeg;base64,..."
+            })
+          }
+
+          // Read the file as a data URL (base64)
+          reader.readAsDataURL(file)
+        })
+      })
+
+      // Wait for all files to be processed
+      Promise.all(fileReadPromises).then((newAttachments) => {
+        setAttachments((prev) => [...prev, ...newAttachments])
+      })
     }
   }
 
@@ -212,6 +351,64 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
 
   // Check if chat is empty (no user messages yet)
   const isChatEmpty = messages.length === 0
+
+  // Handle drag events for file/image drop
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!agent.fileUpload) return;
+    setIsDragActive(true);
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!agent.fileUpload) return;
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+    if (!agent.fileUpload) return;
+    setFileError(null);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    // Validate files first
+    for (const file of files) {
+      const { valid, error } = validateFile(file);
+      if (!valid) {
+        setFileError(error || 'Invalid file');
+        return;
+      }
+    }
+    // If all files are valid, create an array to store the promises for file reading
+    const fileReadPromises = files.map((file) => {
+      return new Promise<Attachment>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64Data = event.target?.result as string;
+          resolve({
+            id: uuidv4(),
+            name: file.name,
+            type: file.type,
+            url: base64Data,
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+    Promise.all(fileReadPromises).then((newAttachments) => {
+      setAttachments((prev) => [...prev, ...newAttachments]);
+    });
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -391,6 +588,17 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
           <div className="flex flex-wrap gap-2">
             {attachments.map((attachment) => (
               <div key={attachment.id} className="flex items-center gap-2 bg-muted p-2 rounded-md">
+                {attachment.type && attachment.type.startsWith('image/') ? (
+                  <img
+                    src={attachment.url}
+                    alt={attachment.name}
+                    className="w-6 h-6 object-cover rounded-sm border"
+                  />
+                ) : (
+                  <div className="w-6 h-6 bg-primary/10 rounded-sm border flex items-center justify-center">
+                    <FileText className="h-3 w-3 text-primary" />
+                  </div>
+                )}
                 <span className="text-sm truncate max-w-[150px]">{attachment.name}</span>
                 <Button
                   variant="ghost"
@@ -407,12 +615,29 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
       )}
 
       {/* Input area */}
-      <div className="p-4 border-t">
+      <div
+        className={`p-4 border-t relative${isDragActive ? ' ring-2 ring-primary/60 bg-primary/5' : ''}`}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+      >
+        {fileError && (
+          <div className="mb-2 p-2 bg-destructive/10 text-destructive rounded-md text-sm flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            {fileError}
+          </div>
+        )}
         <div className="relative">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder="Type your message..."
             className="min-h-[60px] resize-none pr-20"
             disabled={isLoading}
@@ -420,13 +645,21 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
           <div className="absolute right-2 bottom-2 flex items-center gap-2">
             {agent.fileUpload && (
               <>
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" multiple />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  multiple
+                  accept={`${ALLOWED_FILE_TYPES.join(',')}, .md, .markdown`}
+                />
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isLoading}
+                  title="Attach files"
                 >
                   <PaperclipIcon className="h-4 w-4" />
                 </Button>
