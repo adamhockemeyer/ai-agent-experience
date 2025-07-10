@@ -17,6 +17,9 @@ var prefix = contains('abcdefghijklmnopqrstuvwxyz', toLower(substring(resourcePr
 @description('Array of OpenAI model deployments to create. If empty, default models will be used.')
 param openAIDeployments array = []
 
+@description('Version of the Azure OpenAI API to use. Used by the OpenAI API in API Management as well as the Azure Container Apps API.')
+param azureOpenAIAPIVersion string = '2024-10-21'
+
 param commonTags object = {
   created_by: 'bicep'
   project: 'AI Agent Experience'
@@ -64,7 +67,7 @@ module storageAccount 'storage/storage.bicep' = {
 
 // Create multiple OpenAI Accounts to show Load Balancing in API Management
 
-module cognitiveServices1 'cognitive-services/cognitive-services-openai.bicep' = {
+module cognitiveServices1 'cognitive-services/ai-account.bicep' = {
   name: '${prefix}-oai'
   params: {
     location: location
@@ -155,8 +158,8 @@ module apimApisOpenAI 'api-management/apis/openai-api.bicep' = {
   name: '${prefix}-apim-openai-api'
   params: {
     serviceName: apim.outputs.name
-    backendName: apimBackendsOpenAI.outputs.backendPoolName
     apimLoggerName: apim.outputs.loggerName
+    apiVersion: azureOpenAIAPIVersion
   }
   dependsOn: [
     apimNameValueOpenAIPool
@@ -200,20 +203,7 @@ module apimApisMaps 'api-management/apis/maps-api.bicep' = {
   ]
 }
 
-// Generic Chat Agent Product
-module apimProduct_generic_chat_agent 'api-management/apim-product.bicep' = {
-  name: '${prefix}-apim-product-generic-chat-agent'
-  params: {
-    apiManagementServiceName: apim.outputs.name
-    productName: 'generic-chat-agent'
-    productDisplayName: 'Generic Chat Agent'
-    productDescription: 'This product has all available APIs enabled for the Chat Agent'
-    productTerms: 'API Chat Product Terms'
-    productApis: [
-      apimApisMaps.outputs.id
-    ]
-  }
-}
+
 
 module cosmosDB 'cosmos-db/cosmosdb.bicep' = {
   name: '${prefix}-cosmosdb'
@@ -440,7 +430,16 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
       }
       {
         name: 'AZURE_OPENAI_ENDPOINT'
-        value: cognitiveServices1.outputs.endpoint
+        value: apim.outputs.gatewayUrl
+      }
+      {
+        // This is the API key for the OpenAI API in API Management
+        name: 'AZURE_OPENAI_API_KEY'
+        value: listSecrets(resourceId('Microsoft.ApiManagement/service/subscriptions', apimName, apimSubscriptionName), '2024-06-01-preview').primaryKey
+      }
+      {
+        name: 'AZURE_OPENAI_API_VERSION'
+        value: azureOpenAIAPIVersion
       }
       {
         name: 'AZURE_AI_ENDPOINT'
@@ -453,6 +452,10 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
       {
         name: 'AZURE_APP_CONFIG_ENDPOINT'
         value: appConfig.outputs.endpoint
+      }
+      {
+        name: 'ACA_POOL_MANAGEMENT_ENDPOINT'
+        value: sessionPools.outputs.Endpoint
       }
       {
         name: 'SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS'
@@ -537,47 +540,32 @@ module sessionPools 'container-apps/container-app-session-pools.bicep' = {
   }
 }
 
-// AI Foundry Hub and Project
-module aiFoundryHub 'ai-foundry/ai-foundry-hub.bicep' = {
-  name: '${prefix}-ai-foundry-hub'
+module bing 'bing-grounding.bicep' = {
+  name: '${prefix}-bing-grounding'
   params: {
-    location: location
-    name: '${prefix}-ai-foundry-hub'
+    baseName: prefix
     tags: commonTags
-    applicationInsightsId: applicationInsights.outputs.id
-    storageAccountId: storageAccount.outputs.id
-    aiServiceKind: cognitiveServices1.outputs.kind
-    aiServicesId: cognitiveServices1.outputs.resourceId
-    aiServicesName: cognitiveServices1.outputs.name
-    aiServicesTarget: cognitiveServices1.outputs.endpoint
-    aoaiModelDeployments: openAIDeployments1.outputs.deployments
-    aiSearchId: search.outputs.id
-    aiSearchName: search.outputs.name
   }
 }
 
-module aiFoundryProject 'ai-foundry/ai-foundry-project.bicep' = {
-  name: '${prefix}-ai-foundry-project'
-  params: {
-    location: location
-    name: '${prefix}-ai-foundry-project'
-    tags: commonTags
-    hubId: aiFoundryHub.outputs.id
-    hubName: aiFoundryHub.outputs.name
-    aiServicesConnectionName: [aiFoundryHub.outputs.connection_aisvcName]
-  }
-}
+// module aiFoundryProject 'cognitive-services/ai-project.bicep' = {
+//   name: '${prefix}-ai-foundry-project'
+//   params: {
+//     location: location
+//     projectName: '${prefix}-ai-project'
+//     projectDescription: 'AI Project for Agent Experience'
+//     projectDisplayName: 'AI Agent Experience Project'
 
-module aiFoundryRoleAssignment 'auth/ai-service-role-assignments.bicep' = {
-  name: '${prefix}-ai-foundry-role-assignment'
-  params: {
-    aiServicesName: cognitiveServices1.outputs.name
-    aiProjectPrincipalId: aiFoundryProject.outputs.principalId
-    aiProjectId: aiFoundryProject.outputs.id
-  }
-}
+//     existingAiFoundryName: cognitiveServices1.outputs.name
+//     existingCosmosDbAccountName: cosmosDB.outputs.cosmosDbAccountName
+//     existingStorageAccountName: storageAccount.outputs.storageAccountName
+//     existingAISearchAccountName: search.outputs.name
+//     existingBingAccountName: bing.outputs.bingAccountName
+//     existingWebApplicationInsightsResourceName: applicationInsights.outputs.name
+//   }
+// }
 
-// AI Project and Capability Host
+//AI Project
 module aiProject 'cognitive-services/ai-project.bicep' = {
   name: '${prefix}-ai-project'
   params: {
@@ -604,85 +592,95 @@ module aiProject 'cognitive-services/ai-project.bicep' = {
     appInsightsName: applicationInsights.outputs.name
     appInsightsResourceGroupName: resourceGroup().name
     appInsightsSubscriptionId: subscription().subscriptionId
+
+    // Connect to Bing Search
+    bingSearchName: bing.outputs.bingAccountName
+    bingSearchResourceGroupName: resourceGroup().name
+    bingSearchSubscriptionId: subscription().subscriptionId
   }
 }
 
 module formatProjectWorkspaceId 'cognitive-services/format-project-workspace-id.bicep' = {
-  name: '${prefix}-format-project-workspace-id-deployment'
+  name: '${prefix}-format-project-workspace-id'
   params: {
     projectWorkspaceId: aiProject.outputs.projectWorkspaceId
   }
 }
 
-// Create role assignments for the AI Project's managed identity
-module aiProjectRoleAssignmentStorage 'auth/role-assignment.bicep' = {
-  name: '${prefix}-ai-project-role-storage'
+module storageAccountRoleAssignment 'cognitive-services/azure-storage-account-role-assignment.bicep' = {
+  name: '${prefix}-storage-account-role-assignment'
+  scope: resourceGroup(subscription().subscriptionId, resourceGroup().name)
   params: {
-    principalId: aiProject.outputs.projectPrincipalId
-    roleDefinitionId: sharedRoleDefinitions['Storage Blob Data Contributor']
+    azureStorageName: storageAccount.outputs.storageAccountName
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
   }
 }
 
-module aiProjectRoleAssignmentSearch 'auth/role-assignment.bicep' = {
-  name: '${prefix}-ai-project-role-search'
+module cosmosAccountRoleAssignments 'cognitive-services/cosmosdb-account-role-assignment.bicep' = {
+  name: '${prefix}-cosmos-account-role-assignments'
+  scope: resourceGroup(subscription().subscriptionId, resourceGroup().name)
   params: {
-    principalId: aiProject.outputs.projectPrincipalId
-    roleDefinitionId: sharedRoleDefinitions['Search Service Contributor']
-  }
-}
-
-module aiProjectRoleAssignmentCosmosOperator 'auth/role-assignment.bicep' = {
-  name: '${prefix}-ai-project-role-cosmos-operator'
-  params: {
-    principalId: aiProject.outputs.projectPrincipalId
-    roleDefinitionId: sharedRoleDefinitions['Cosmos DB Operator']
-  }
-}
-
-module aiProjectCapabilityHost 'cognitive-services/project-capability-host.bicep' = {
-  name: '${prefix}-ai-project-capability-host'
-  params: {
-    accountName: cognitiveServices1.outputs.name
-    projectName: aiProject.outputs.projectName
-    projectCapHost: '${prefix}-agent-host'
-    accountCapHost: '${prefix}-agent-host-account'
-    cosmosDBConnection: aiProject.outputs.cosmosDBConnection
-    azureStorageConnection: aiProject.outputs.azureStorageConnection
-    aiSearchConnection: aiProject.outputs.aiSearchConnection
+    cosmosDBName: cosmosDB.outputs.cosmosDbAccountName
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
   }
   dependsOn: [
-    aiProjectRoleAssignmentStorage
-    aiProjectRoleAssignmentSearch
-    aiProjectRoleAssignmentCosmosOperator
+    storageAccountRoleAssignment
   ]
 }
 
-// The Storage Blob Data Owner role must be assigned before the caphost is created
-module storageContainersRoleAssignment 'auth/blob-storage-container-role-assignments.bicep' = {
-  name: '${prefix}-storage-containers-deployment'
+module aiSearchRoleAssignments 'cognitive-services/ai-search-role-assignments.bicep' = {
+  name: '${prefix}-ai-search-role-assignments'
   scope: resourceGroup(subscription().subscriptionId, resourceGroup().name)
+  params: {
+    aiSearchName: search.outputs.name
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+  dependsOn:[
+    cosmosAccountRoleAssignments, storageAccountRoleAssignment
+  ]
+}
+
+module addProjectCapabilityHost 'cognitive-services/add-project-capability-host.bicep' = {
+  name: '${prefix}-add-project-capability-host'
+  params: {
+    accountName: cognitiveServices1.outputs.name
+    projectName: aiProject.outputs.projectName
+    cosmosDBConnection: aiProject.outputs.cosmosDBConnection
+    azureStorageConnection: aiProject.outputs.azureStorageConnection
+    aiSearchConnection: aiProject.outputs.aiSearchConnection
+
+    projectCapHost: 'projectagents'
+    accountCapHost: 'accountagents'
+  }
+  dependsOn: [
+    aiSearchRoleAssignments, cosmosAccountRoleAssignments, storageAccountRoleAssignment
+  ]
+}
+
+module storageContainerRoleAssignment 'cognitive-services/blob-storage-container-role-assignments.bicep' = {
+  name: '${prefix}-storage-container-role-assignment'
   params: {
     aiProjectPrincipalId: aiProject.outputs.projectPrincipalId
     storageName: storageAccount.outputs.storageAccountName
     workspaceId: formatProjectWorkspaceId.outputs.projectWorkspaceIdGuid
   }
   dependsOn: [
-    aiProjectCapabilityHost
+    addProjectCapabilityHost
   ]
 }
 
-module aiProjectRoleAssignmentCosmos 'auth/cosmos-sql-role-assignment.bicep' = {
-  name: '${prefix}-ai-project-role-cosmos'
+module cosmosContainerRoleAssignment 'cognitive-services/cosmos-container-role-assignments.bicep' = {
+  name: '${prefix}-cosmos-container-role-assignment'
   params: {
-    principalId: aiProject.outputs.projectPrincipalId
-    roleDefinitionId: sharedRoleDefinitions['Cosmos DB Built-in Data Contributor']
-    cosmosDbAccountName: cosmosDB.outputs.cosmosDbAccountName
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+    cosmosAccountName: cosmosDB.outputs.cosmosDbAccountName
+    projectWorkspaceId: formatProjectWorkspaceId.outputs.projectWorkspaceIdGuid
   }
   dependsOn: [
-    aiProjectCapabilityHost
-    storageContainersRoleAssignment
+    addProjectCapabilityHost, storageContainerRoleAssignment
   ]
 }
+
 
 // Managed Identity to Agent Service Role Assignment
 module aiUserRoleAssignmentUAMI 'auth/role-assignment.bicep' = {
@@ -727,16 +725,11 @@ output REACT_APP_WEB_BASE_URL string = webContainerApp.outputs.uri
 output SERVICE_API_NAME string = apiContainerApp.outputs.name
 output SERVICE_WEB_NAME string = webContainerApp.outputs.name
 
-// AI Foundry outputs
-output AI_FOUNDRY_HUB_NAME string = aiFoundryHub.outputs.name
-output AI_FOUNDRY_PROJECT_NAME string = aiFoundryProject.outputs.name
-output AI_FOUNDRY_PROJECT_ENDPOINT string = aiFoundryProject.outputs.endpoint
-output AI_FOUNDRY_CONNECTION_STRING string = aiFoundryProject.outputs.connectionString
 
 // AI Project outputs
 output AI_PROJECT_NAME string = aiProject.outputs.projectName
-output AI_PROJECT_ID string = aiProject.outputs.projectId
-output AI_PROJECT_ENDPOINT string = 'https://${cognitiveServices1.outputs.name}.services.ai.azure.com/api/projects/${aiProject.outputs.projectName}'
+output AI_PROJECT_ENDPOINT string = aiProject.outputs.projectEndpoint
+
 
 output AZURE_STORAGE_ACCOUNT_NAME string = storageAccount.outputs.storageAccountName
 output AZURE_SEARCH_SERVICE_NAME string = search.outputs.name

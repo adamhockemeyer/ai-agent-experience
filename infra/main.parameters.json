@@ -11,6 +11,9 @@
     "apimPublisherEmail": {
       "value": "user@company.com"
     },
+    "azureOpenAIAPIVersion": {
+      "value": "2024-10-21"
+    },
     "openAIDeployments": {
       "value": [
         {

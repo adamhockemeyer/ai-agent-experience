@@ -17,7 +17,7 @@ param sqlRoleAssignments array = []
 
 param tags object = {}
 
-resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-preview' = {
+resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2025-05-01-preview' = {
   name: accountName
   location: location
   kind: 'GlobalDocumentDB'
@@ -36,7 +36,7 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-previ
   }
 }
 
-resource cosmosDbDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-12-01-preview' = {
+resource cosmosDbDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-05-01-preview' = {
   parent: cosmosDbAccount
   name: databaseName
   properties: {
@@ -46,7 +46,7 @@ resource cosmosDbDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@20
   }
 }
 
-resource cosmosDbContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-12-01-preview' = [
+resource cosmosDbContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-05-01-preview' = [
   for collection in collectionNames: {
     parent: cosmosDbDatabase
     name: collection
@@ -57,6 +57,8 @@ resource cosmosDbContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/
           paths: ['/${partitionKey}']
           kind: 'Hash'
         }
+        // TTL set to -1 means it is enabled for teh container, but no automatic expiration of items
+        defaultTtl: -1
       }
       options: {
         autoscaleSettings: {

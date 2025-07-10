@@ -46,14 +46,21 @@ class ServiceFactory:
             try:
                 if provider == "AzureOpenAI":
                     with tracer.start_as_current_span("create_azure_openai_service"):
+
+                        span.set_attribute("endpoint", settings.azure_openai_endpoint)
+
                         return AzureChatCompletion(
                             deployment_name=model,
                             endpoint=settings.azure_openai_endpoint,
                             api_key=settings.azure_openai_api_key,
+                            api_version=settings.azure_openai_api_version,
                             service_id=agent_config.id
                         )
                 elif provider == "AzureAIInference":
                     with tracer.start_as_current_span("create_azure_ai_inference_service"):
+
+                        span.set_attribute("endpoint", settings.azure_ai_endpoint)
+
                         return AzureAIInferenceChatCompletion(
                             ai_model_id=model,
                             endpoint=settings.azure_ai_endpoint,

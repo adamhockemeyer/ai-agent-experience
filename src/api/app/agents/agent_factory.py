@@ -9,7 +9,7 @@ from semantic_kernel.functions import KernelArguments
 from azure.identity.aio import DefaultAzureCredential
 from opentelemetry import trace
 
-from app.models import Agent
+from app.models import Agent, Tool
 from app.config.config import get_settings
 from app.agents.service_factory import ServiceFactory
 
@@ -25,6 +25,7 @@ class AgentFactory:
         with tracer.start_as_current_span("create_agent") as span:
             span.set_attribute("agent_id", agent_config.id)
             span.set_attribute("agent_type", agent_config.agentType)
+            span.set_attribute("code_interpreter_enabled", agent_config.codeInterpreter)
             
             if plugins is None:
                 plugins = []

@@ -3,7 +3,9 @@ param name string
 param commonTags object = {}
 param roleAssignments array = []
 
-resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
+
+
+resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   name: name
   location: location
   kind: 'AIServices'
@@ -19,7 +21,6 @@ resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2025-04-
   identity: {
     type: 'SystemAssigned'
   }
-  
 }
 
 resource roleAssignmentsResource 'Microsoft.Authorization/roleAssignments@2022-04-01' = [

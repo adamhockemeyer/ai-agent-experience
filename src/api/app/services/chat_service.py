@@ -44,8 +44,7 @@ class ChatService:
             
             # Try to load existing thread first
             existing_thread = await self.thread_storage.load(session_id)
-            
-            # If function call status should be displayed, prepare the function call stream
+              # If function call status should be displayed, prepare the function call stream
             function_stream = None
             if agent.displayFunctionCallStatus:
                 function_stream = FunctionCallStream.get_or_create(session_id)

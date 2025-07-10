@@ -10,11 +10,13 @@ The following environment variables are required to run the backend API:
 |---------------|-------------|----------|
 | `AZURE_OPENAI_API_KEY` | API key for Azure OpenAI service | No* |
 | `AZURE_OPENAI_ENDPOINT` | Endpoint URL for Azure OpenAI service | Yes |
+| `AZURE_OPENAI_API_VERSION` | API Version for Azure OpenAI service | No |
 | `AZURE_AI_API_KEY` | API key for Azure AI service | No* |
 | `AZURE_AI_ENDPOINT` | Endpoint URL for Azure AI service | Yes |
 | `AZURE_APP_CONFIG_ENDPOINT` | Endpoint URL for Azure App Configuration | Yes** |
 | `AZURE_APP_CONFIG_CONNECTION_STRING` | Connection string for Azure App Configuration | No*** |
 | `AZURE_APPLICATION_INSIGHTS_CONNECTION_STRING` | Connection string for Azure Application Insights telemetry | No |
+| `ACA_POOL_MANAGEMENT_ENDPOINT` | Endpoint for Container Apps Session Pools (For code interpreter) | No |
 | `THREAD_STORAGE_TYPE` | Storage type for conversation threads: "memory" or "cosmosdb" | No (defaults to "memory") |
 | `COSMOS_DB_ENDPOINT` | Endpoint for CosmosDB | Only if THREAD_STORAGE_TYPE="cosmosdb" |
 | `COSMOS_DB_CONNECTION_STRING` | Connection string for CosmosDB | No**** |
