@@ -129,3 +129,66 @@ az cosmosdb sql role assignment create --resource-group "apichat-rg" --account-n
 
 For more detailed instructions, refer to the [official documentation](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access).
 
+## Architecture Overview
+
+```mermaid
+graph TB
+    User[👤 User] --> WebApp[🌐 Web App<br/>Azure Container App]
+    
+    WebApp --> AppConfig1[⚙️ App Configuration<br/>Website Config]
+    WebApp --> APIApp[🔌 API App<br/>Azure Container App]
+    
+    APIApp --> AppConfig2[⚙️ App Configuration<br/>Agent Configs]
+    APIApp --> AIAgentService[🤖 Azure AI Agent Service<br/>Agent Orchestration]
+    APIApp --> APIM[🔗 API Management<br/>OpenAI Load Balancer]
+    
+    APIM --> Maps[🗺️ Azure Maps<br/>Weather Service]
+    APIM --> Functions[⚡ Azure Functions<br/>SAP Demo APIs]
+    APIM --> CognitiveServices[🧠 Azure Cognitive Services<br/>OpenAI Models]
+    
+    %% Position Cosmos DB next to Cognitive Services
+    CosmosDB[🗄️ Cosmos DB<br/>Chat Sessions]
+    
+    %% Connect API App to Cosmos DB after positioning
+    APIApp --> CosmosDB
+    
+    AIAgentService --> Search[🔍 AI Search<br/>Document Processing]
+    AIAgentService --> Storage[📦 Azure Storage<br/>Files & Documents]
+    AIAgentService --> CognitiveServices
+    AIAgentService --> CosmosDB
+    
+    APIApp --> SessionPools[🐍 Container App Sessions<br/>Code Interpreter]
+    APIApp --> KeyVault[🔐 Azure Key Vault<br/>Secrets & Keys]
+    
+    AppConfig2 --> AgentConfigs{Agent Configurations}
+    AgentConfigs --> Weather["🌦️ Weather Agent<br/>• Azure Maps Weather Service<br/>(OpenAPI)"]
+    AgentConfigs --> Playwright["🎭 Playwright Agent<br/>• Playwright MCP<br/>(ModelContextProtocol)"]
+    AgentConfigs --> SAP["💼 SAP Agent<br/>• SAP Data API<br/>(OpenAPI)"]
+    AgentConfigs --> Orchestrator["🎯 Orchestrator Agent<br/>• SAP Agent<br/>• Weather Agent<br/>(Agent Tools)"]
+    
+    style WebApp fill:#e1f5fe
+    style APIApp fill:#f3e5f5
+    style AppConfig1 fill:#fff3e0
+    style AppConfig2 fill:#fff3e0
+    style APIM fill:#e8f5e8
+    style Maps fill:#e8f5e8
+    style Functions fill:#e8f5e8
+    style CognitiveServices fill:#fce4ec
+    style AIAgentService fill:#e8eaf6
+    style CosmosDB fill:#f1f8e9
+    style Search fill:#fff8e1
+    style Storage fill:#f3e5f5
+    style SessionPools fill:#e1f5fe
+    style KeyVault fill:#fce4ec
+    style Weather fill:#e3f2fd
+    style Playwright fill:#f3e5f5
+    style SAP fill:#fff3e0
+    style Orchestrator fill:#e8eaf6
+    
+    %% Standalone services positioned at bottom - defined last to appear at bottom
+    ContainerRegistry[📦 Azure Container Registry<br/>Container Images]
+    AppInsights[📊 Application Insights<br/>Monitoring & Telemetry]
+    style ContainerRegistry fill:#e8f5e8
+    style AppInsights fill:#fff8e1
+```
+

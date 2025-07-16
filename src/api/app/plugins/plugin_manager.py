@@ -6,6 +6,7 @@ from app.plugins.base import PluginBase
 from app.plugins.mcp_plugin import MCPPluginHandler
 from app.plugins.openapi_plugin import OpenAPIPluginHandler, OpenAPIPluginError
 from app.plugins.agent_plugin import AgentPluginHandler
+from app.plugins.code_interpreter_plugin import CodeInterpreterPluginHandler
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +17,11 @@ class PluginManager:
         self._plugin_handlers = {
             "ModelContextProtocol": MCPPluginHandler(),
             "OpenAPI": OpenAPIPluginHandler(),
-            "Agent": AgentPluginHandler()
+            "Agent": AgentPluginHandler(),
+            "CodeInterpreter": CodeInterpreterPluginHandler()
         }
         self._active_plugins = []
-        
+    
     async def __aenter__(self):
         """Context manager entry"""
         return self
@@ -33,7 +35,33 @@ class PluginManager:
         """Initialize all plugins defined in agent configuration."""
         plugins = []
         
-        for tool in agent.tools:
+        # Check if code interpreter is enabled and automatically add the tool
+        tools_to_process = list(agent.tools)  # Make a copy of the tools list
+        
+        if agent.codeInterpreter:
+            # Check if CodeInterpreter tool already exists
+            has_code_interpreter = any(
+                tool.type == "CodeInterpreter" 
+                for tool in tools_to_process
+            )
+            
+            if not has_code_interpreter:
+                # Import Tool here to avoid circular imports
+                from app.models import Tool
+                
+                # Add code interpreter tool
+                code_interpreter_tool = Tool(
+                    id=f"{agent.id}_code_interpreter",
+                    name="Code Interpreter",
+                    type="CodeInterpreter",
+                    specUrl=None,
+                    authentications=None,
+                    mcpDefinition=None
+                )
+                tools_to_process.append(code_interpreter_tool)
+                logger.info(f"Automatically added CodeInterpreter tool for agent {agent.id}")
+        
+        for tool in tools_to_process:
             if tool.type in self._plugin_handlers:
                 handler = self._plugin_handlers[tool.type]
                 try:

@@ -11,29 +11,28 @@
             "runtimeExecutable": "npm",
             "runtimeArgs": [
                 "run",
-                "dev"
+                "dev",
+                "--",
+                "--turbo" // Add Turbopack for faster builds
             ],
             "cwd": "${workspaceFolder}/src/frontend/app",
             "sourceMaps": true,
             "resolveSourceMapLocations": [
-                "${workspaceFolder}/**",
+                "${workspaceFolder}/src/frontend/app/**", // More specific path
                 "!**/node_modules/**"
             ],
             "skipFiles": [
                 "<node_internals>/**",
                 "**/node_modules/**"
             ],
-            "serverReadyAction": {
-                "pattern": "- Local:.+(https?://\\S+)",
-                "uriFormat": "%s",
-                "action": "debugWithEdge"
-            },
             "outFiles": [
-                "${workspaceFolder}/src/frontend/app/.next/server/**/*.js"
+                "${workspaceFolder}/src/frontend/app/.next/**/*.js" // Broader .next pattern
             ],
             "console": "integratedTerminal",
+            "restart": true, // Enable automatic restart
             "env": {
-                "NODE_OPTIONS": "--inspect"
+                "NODE_ENV": "development",
+                "NEXT_TELEMETRY_DISABLED": "1" // Disable Next.js telemetry
             }
         },
         {

@@ -20,6 +20,10 @@ param appInsightsName string
 param appInsightsSubscriptionId string
 param appInsightsResourceGroupName string
 
+param bingSearchName string
+param bingSearchSubscriptionId string
+param bingSearchResourceGroupName string
+
 resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' existing = {
   name: aiSearchName
   scope: resourceGroup(aiSearchServiceSubscriptionId, aiSearchServiceResourceGroupName)
@@ -36,6 +40,12 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
   scope: resourceGroup(appInsightsSubscriptionId, appInsightsResourceGroupName)
+}
+
+#disable-next-line BCP081
+resource bingSearch 'Microsoft.Bing/accounts@2025-05-01-preview' existing = {
+  name: bingSearchName
+  scope: resourceGroup(bingSearchSubscriptionId, bingSearchResourceGroupName)
 }
 
 resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
@@ -111,6 +121,24 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
       metadata: {
         ApiType: 'Azure'
         ResourceId: appInsights.id
+      }
+    }
+  }
+
+  resource bing_search_account_connection 'connections@2025-04-01-preview' = {
+    name: '${bingSearchName}-bingsearchconnection'
+    properties: {
+      category: 'ApiKey'
+      target: 'https://api.bing.microsoft.com/'
+      authType: 'ApiKey'
+      credentials: {
+        key: '${listKeys(bingSearch.id, '2020-06-10').key1}'
+      }
+      isSharedToAll: true
+      metadata: {
+        ApiType: 'Azure'
+        Location: bingSearch.location
+        ResourceId: bingSearch.id
       }
     }
   }

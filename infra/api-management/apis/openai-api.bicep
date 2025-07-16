@@ -1,29 +1,32 @@
 @description('The name of the API Management instance to deploy this API to.')
 param serviceName string
-//param endpoint string
-param backendName string
 param apimLoggerName string
+param apiVersion string = '2024-10-21'
 
 resource apimService 'Microsoft.ApiManagement/service@2023-09-01-preview' existing = {
   name: serviceName
 }
 
-//var openApiSpecUrl = 'https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/specification/cognitiveservices/data-plane/AzureOpenAI/inference/stable/2024-10-21/inference.json'
-var openApiSpecUrl = 'https://raw.githubusercontent.com/Azure/azure-rest-api-specs/refs/heads/main/specification/cognitiveservices/data-plane/AzureOpenAI/inference/preview/2024-12-01-preview/inference.json'
-// var aoaiSwagger = loadTextContent('./azure-openai-2024-10-21.json')
-// var aoaiSwaggerUrl = replace(aoaiSwagger, 'https://{endpoint}/openai', 'https://${endpoint}/openai')
-// var aoaiSwaggerDefault = replace(aoaiSwaggerUrl, 'your-resource-name.openai.azure.com', '${serviceName}')
+// Determine if this is a preview or stable API version
+var isPreviewVersion = contains(toLower(apiVersion), 'preview')
+var versionPath = isPreviewVersion ? 'preview' : 'stable'
+
+var openApiSpecUrl = 'https://raw.githubusercontent.com/Azure/azure-rest-api-specs/refs/heads/main/specification/cognitiveservices/data-plane/AzureOpenAI/inference/${versionPath}/${apiVersion}/inference.json'
 
 resource apiDefinition 'Microsoft.ApiManagement/service/apis@2023-09-01-preview' = {
   name: 'azure-openai'
   parent: apimService
   properties: {
     path: 'openai'
-    description: 'See https://raw.githubusercontent.com/Azure/azure-rest-api-specs/refs/heads/main/specification/cognitiveservices/data-plane/AzureOpenAI/inference/preview/2024-12-01-preview/inference.json'
+    description: 'See https://raw.githubusercontent.com/Azure/azure-rest-api-specs/refs/heads/main/specification/cognitiveservices/data-plane/AzureOpenAI/inference/${versionPath}/${apiVersion}/inference.json'
     displayName: 'azure-openai'
     format: 'openapi-link'
     value: openApiSpecUrl
     subscriptionRequired: true
+    subscriptionKeyParameterNames: {
+      header: 'api-key'
+      query: 'api-key'
+    }
     type: 'http'
     protocols: ['https']
   }
@@ -94,7 +97,7 @@ var logSettings = {
     'x-ratelimit-remaining-tokens'
     'x-ratelimit-remaining-requests'
   ]
-  body: { bytes: 8192 }
+  body: { bytes: 0 }
 }
 
 resource apimLogger 'Microsoft.ApiManagement/service/loggers@2023-09-01-preview' existing = if (!empty(apimLoggerName)) {

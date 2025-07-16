@@ -17,7 +17,7 @@ param subscriptionName string
   'Standardv2'
   'Premium'
 ])
-param skuName string = 'Developer'
+param skuName string = 'Basicv2'
 
 resource apimService 'Microsoft.ApiManagement/service@2024-05-01' = {
   name: name
@@ -36,7 +36,7 @@ resource apimService 'Microsoft.ApiManagement/service@2024-05-01' = {
   tags: commonTags
 }
 
-resource apimSubscription 'Microsoft.ApiManagement/service/subscriptions@2023-09-01-preview' = {
+resource apimSubscription 'Microsoft.ApiManagement/service/subscriptions@2024-06-01-preview' = {
   name: subscriptionName
   parent: apimService
   properties: {
@@ -140,3 +140,4 @@ output principalId string = apimService.identity.principalId
 output loggerId string = apimLogger.id
 output loggerName string = apimLogger.name
 output gatewayUrl string = apimService.properties.gatewayUrl
+

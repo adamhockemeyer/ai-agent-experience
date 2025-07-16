@@ -4,6 +4,7 @@ from pydantic import ConfigDict
 class Settings(BaseSettings):
     azure_openai_api_key: str = ""
     azure_openai_endpoint: str = ""
+    azure_openai_api_version: str | None = None  # Optional, Semantic Kernel defaults to latest non-preview verrsion
     azure_ai_api_key: str = ""
     azure_ai_endpoint: str
     azure_application_insights_connection_string: str = ""
@@ -12,6 +13,9 @@ class Settings(BaseSettings):
     azure_tracing_gen_ai_content_recording_enabled: bool = False
     semantickernel_experimental_genai_enable_otel_diagnostics_sensitive: bool = False    # AI Foundry
     azure_ai_agent_endpoint: str = ""
+    
+    # Code Interpreter / Azure Container Apps Session Pool configuration
+    aca_pool_management_endpoint: str = ""  # Azure Container Apps session pool endpoint
     
     # Thread storage configuration
     thread_storage_type: str = "memory"  # Options: "memory", "redis", "cosmosdb"
