@@ -359,3 +359,10 @@ config.txt
 **/app/data
 .azure
 .env
+
+# Azurite local storage emulator files
+__azurite_db*.json
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+AzuriteConfig

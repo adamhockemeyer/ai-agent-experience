@@ -61,6 +61,8 @@ module storageAccount 'storage/storage.bicep' = {
       'documents'
       'function-releases'
       'function-releases-api-sap'
+      'function-releases-api-mcp-search-index'
+      'eventgrid-deadletter'
     ]
   }
 }
@@ -203,18 +205,22 @@ module apimApisMaps 'api-management/apis/maps-api.bicep' = {
   ]
 }
 
-
-
 module cosmosDB 'cosmos-db/cosmosdb.bicep' = {
   name: '${prefix}-cosmosdb'
   params: {
     location: location
     accountName: '${prefix}-cosmosdb'
     databaseName: 'aiagents-db'
-    collectionNames: [
-      'chatHistory'
+    containerConfigurations: [
+      {
+        name: 'chatHistory'
+        partitionKey: '/partitionKey'
+        enableVectorSearch: false
+        enableFullTextSearch: false
+      }
     ]
     partitionKey: 'partitionKey'
+    embeddingDimensions: 1536 // Standard OpenAI embedding dimensions
     tags: commonTags
     sqlRoleAssignments: [
       {
@@ -226,6 +232,71 @@ module cosmosDB 'cosmos-db/cosmosdb.bicep' = {
         roleDefinitionId: sharedRoleDefinitions['Cosmos DB Built-in Data Contributor']
       }
     ]
+  }
+}
+
+// Separate database for document search index with vector and full-text search
+module cosmosDocumentIndex 'cosmos-db/cosmosdb.bicep' = {
+  name: '${prefix}-cosmos-document-index'
+  params: {
+    location: location
+    accountName: '${prefix}-cosmosdb' // Use same account
+    databaseName: 'DocumentIndex' // Separate database for search index
+    containerConfigurations: [
+      {
+        name: 'chunks'
+        partitionKey: '/document_id' // Partition by document ID for efficient queries
+        enableVectorSearch: true
+        enableFullTextSearch: true
+      }
+    ]
+    partitionKey: 'document_id'
+    embeddingDimensions: 1536
+    tags: commonTags
+    sqlRoleAssignments: [
+      {
+        principalId: userAssignedManagedIdentity.properties.principalId
+        roleDefinitionId: sharedRoleDefinitions['Cosmos DB Built-in Data Contributor']
+      }
+      {
+        principalId: az.deployer().objectId
+        roleDefinitionId: sharedRoleDefinitions['Cosmos DB Built-in Data Contributor']
+      }
+    ]
+  }
+  dependsOn: [
+    cosmosDB // Ensure main DB is created first
+  ]
+}
+
+// Azure RBAC role assignments for Cosmos DB account management
+resource cosmosDbContributorRoleAssignmentUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(az.deployer().objectId, sharedRoleDefinitions['DocumentDB Account Contributor'], '${prefix}-cosmosdb')
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: resourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      sharedRoleDefinitions['DocumentDB Account Contributor']
+    )
+    principalId: az.deployer().objectId
+    principalType: 'User'
+  }
+}
+
+resource cosmosDbContributorRoleAssignmentMsi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(
+    userAssignedManagedIdentity.name,
+    sharedRoleDefinitions['DocumentDB Account Contributor'],
+    '${prefix}-cosmosdb'
+  )
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: resourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      sharedRoleDefinitions['DocumentDB Account Contributor']
+    )
+    principalId: userAssignedManagedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -325,7 +396,11 @@ module search 'ai-search/search.bicep' = {
   }
 }
 
-// Function App with Flex Consumption Plan
+// Function App Infrastructure
+// Azure Functions Flex Consumption plans can only host one function app each
+// We create separate plans for each function app to ensure proper isolation
+
+// Function App with Flex Consumption Plan for SAP Demo API
 module functionAppPlan 'function-app/function-app-plan.bicep' = {
   name: '${prefix}-function-app-plan'
   params: {
@@ -339,7 +414,21 @@ module functionAppPlan 'function-app/function-app-plan.bicep' = {
   }
 }
 
-// Function App Site
+// Function App with Flex Consumption Plan for MCP Search Index
+module mcpSearchIndexFunctionAppPlan 'function-app/function-app-plan.bicep' = {
+  name: '${prefix}-mcp-search-index-function-app-plan'
+  params: {
+    location: location
+    name: '${prefix}-mcp-search-index-function-plan'
+    tags: commonTags
+    sku: {
+      tier: 'FlexConsumption'
+      name: 'FC1'
+    }
+  }
+}
+
+// Function App Site for SAP Demo API
 module sapDemoAPIFunctionApp 'function-app/function-app-site.bicep' = {
   name: '${prefix}-function-app'
   params: {
@@ -363,6 +452,166 @@ module sapDemoAPIFunctionApp 'function-app/function-app-site.bicep' = {
     ]
   }
 }
+
+// MCP Search Index Function App
+module mcpSearchIndexFunctionApp 'function-app/function-app-site.bicep' = {
+  name: '${prefix}-function-app-mcp-search'
+  params: {
+    location: location
+    name: '${prefix}-function-api-mcp-search-index'
+    appServicePlanId: mcpSearchIndexFunctionAppPlan.outputs.resourceId
+    tags: union(commonTags, { 'azd-service-name': 'api-mcp-search-index' })
+    identityType: 'UserAssigned'
+    identityId: userAssignedManagedIdentity.id
+    principalId: userAssignedManagedIdentity.properties.principalId
+    applicationInsightsConnectionString: applicationInsights.outputs.connectionString
+    storageAccountName: storageAccount.outputs.storageAccountName
+    maximumInstanceCount: 40
+    instanceMemoryMB: 2048
+    deploymentStorageContainerName: 'function-releases-api-mcp-search-index'
+    env: [
+      {
+        name: 'AZURE_CLIENT_ID'
+        value: userAssignedManagedIdentity.properties.clientId
+      }
+      {
+        name: 'DOCUMENTS_STORAGE_CONNECTION_STRING'
+        value: ''
+      }
+      {
+        name: 'DOCUMENTS_STORAGE_ACCOUNT_URL'
+        value: storageAccount.outputs.primaryBlobEndpoint
+      }
+      {
+        name: 'DOCUMENTS_CONTAINER_NAME'
+        value: 'documents'
+      }
+      {
+        name: 'DocumentsStorage__blobServiceUri'
+        value: storageAccount.outputs.primaryBlobEndpoint
+      }
+      {
+        name: 'DocumentsStorage__queueServiceUri'
+        value: storageAccount.outputs.primaryQueueEndpoint
+      }
+      {
+        name: 'COSMOS_ENDPOINT'
+        value: cosmosDocumentIndex.outputs.cosmosDbEndpoint
+      }
+      {
+        name: 'COSMOS_DATABASE_NAME'
+        value: cosmosDocumentIndex.outputs.cosmosDbDatabaseName
+      }
+      {
+        name: 'COSMOS_CONTAINER_NAME'
+        value: cosmosDocumentIndex.outputs.cosmosDbContainerNames[0]
+      }
+      {
+        name: 'AZURE_SUBSCRIPTION_ID'
+        value: subscription().subscriptionId
+      }
+      {
+        name: 'AZURE_RESOURCE_GROUP'
+        value: resourceGroup().name
+      }
+      {
+        name: 'AZURE_OPENAI_ENDPOINT'
+        value: apim.outputs.gatewayUrl
+      }
+      {
+        name: 'AZURE_OPENAI_KEY'
+        value: listSecrets(
+          resourceId('Microsoft.ApiManagement/service/subscriptions', apimName, apimSubscriptionName),
+          '2024-06-01-preview'
+        ).primaryKey
+      }
+      {
+        name: 'AZURE_OPENAI_EMBEDDING_MODEL'
+        value: openAIDeployments1.outputs.embeddingDeploymentName
+      }
+      {
+        name: 'AZURE_OPENAI_API_VERSION'
+        value: azureOpenAIAPIVersion
+      }
+      {
+        name: 'CHUNK_SIZE'
+        value: '1000'
+      }
+      {
+        name: 'CHUNK_OVERLAP'
+        value: '200'
+      }
+      {
+        name: 'MAX_TOKENS_PER_CHUNK'
+        value: '8000'
+      }
+      {
+        name: 'EMBEDDING_BATCH_SIZE'
+        value: '16'
+      }
+      {
+        name: 'EMBEDDING_DIMENSIONS'
+        value: '1536'
+      }
+      {
+        name: 'MAX_FILE_SIZE_MB'
+        value: '100'
+      }
+      {
+        name: 'SUPPORTED_EXTENSIONS'
+        value: '.pdf,.docx,.doc,.pptx,.ppt,.txt,.md,.html,.xlsx,.xls,.csv,.rtf,.odt,.png,.jpg,.jpeg,.bmp,.tiff,.gif'
+      }
+      {
+        name: 'MAX_RETRIES'
+        value: '3'
+      }
+      {
+        name: 'RETRY_DELAY_SECONDS'
+        value: '1'
+      }
+      {
+        name: 'LOG_LEVEL'
+        value: 'INFO'
+      }
+    ]
+  }
+}
+
+// Ensure the deployment script identity can list Function App host keys
+// Use deterministic name so scope can be calculated at the start of deployment
+resource mcpFunctionAppExisting 'Microsoft.Web/sites@2023-01-01' existing = {
+  name: '${prefix}-function-api-mcp-search-index'
+}
+
+// Assign Contributor role at the Function App scope to the User-Assigned Managed Identity
+resource mcpFunctionAppContributorRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(userAssignedManagedIdentity.id, mcpFunctionAppExisting.id, 'contributor')
+  scope: mcpFunctionAppExisting
+  properties: {
+    // Website Contributor - sufficient for Microsoft.Web/sites/* including host/listkeys
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      'de139f84-1756-47ae-9be6-808fbbe84772'
+    )
+    principalId: userAssignedManagedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Create a nested deployment to handle Event Grid system topic creation conditionally
+// module eventGridModule 'event-grid-simple.bicep' = {
+//   name: '${prefix}-event-grid-simple'
+//   params: {
+//     prefix: prefix
+//     location: location
+//     storageAccountId: storageAccount.outputs.id
+//     mcpSearchIndexFunctionAppResourceId: mcpSearchIndexFunctionApp.outputs.resourceId
+//     userAssignedManagedIdentityId: userAssignedManagedIdentity.id
+//   }
+//   dependsOn: [
+//     eventGridRoleAssignmentUAMI
+//   ]
+// }
 
 module keyVault 'keyvault/keyvault.bicep' = {
   name: '${prefix}-kv'
@@ -395,6 +644,56 @@ module containerAppsEnvironment 'container-apps/container-app-environment.bicep'
 resource userAssignedManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${prefix}-identity'
   location: location
+}
+
+// Assign Storage Blob Data Contributor role to the user-assigned managed identity
+// This ensures function apps using this identity can access storage without additional role assignments
+resource storageAccountRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(
+    userAssignedManagedIdentity.id,
+    sharedRoleDefinitions['Storage Blob Data Contributor'],
+    storageAccount.name
+  )
+  properties: {
+    roleDefinitionId: resourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      sharedRoleDefinitions['Storage Blob Data Contributor']
+    )
+    principalId: userAssignedManagedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Assign Storage Queue Data Contributor role to the user-assigned managed identity
+// This is required for the MCP function app's blob trigger to work with Event Grid
+resource storageQueueRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(
+    userAssignedManagedIdentity.id,
+    sharedRoleDefinitions['Storage Queue Data Contributor'],
+    storageAccount.name
+  )
+  properties: {
+    roleDefinitionId: resourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      sharedRoleDefinitions['Storage Queue Data Contributor']
+    )
+    principalId: userAssignedManagedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// // Assign EventGrid Contributor role to the user-assigned managed identity
+// // This allows the identity to create and manage Event Grid system topics and subscriptions
+resource eventGridRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(userAssignedManagedIdentity.id, sharedRoleDefinitions['EventGrid Contributor'], resourceGroup().id)
+  properties: {
+    roleDefinitionId: resourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      sharedRoleDefinitions['EventGrid Contributor']
+    )
+    principalId: userAssignedManagedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
 }
 
 module containerRegistry 'container-apps/container-registry.bicep' = {
@@ -435,7 +734,10 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
       {
         // This is the API key for the OpenAI API in API Management
         name: 'AZURE_OPENAI_API_KEY'
-        value: listSecrets(resourceId('Microsoft.ApiManagement/service/subscriptions', apimName, apimSubscriptionName), '2024-06-01-preview').primaryKey
+        value: listSecrets(
+          resourceId('Microsoft.ApiManagement/service/subscriptions', apimName, apimSubscriptionName),
+          '2024-06-01-preview'
+        ).primaryKey
       }
       {
         name: 'AZURE_OPENAI_API_VERSION'
@@ -484,6 +786,23 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
       {
         name: 'COSMOS_DB_PARTITION_KEY'
         value: cosmosDB.outputs.cosmosDbPartitionKey
+      }
+      // Environment variables for MCP Search Index
+      {
+        name: 'COSMOS_ENDPOINT'
+        value: cosmosDocumentIndex.outputs.cosmosDbEndpoint
+      }
+      {
+        name: 'COSMOS_DATABASE_NAME'
+        value: cosmosDocumentIndex.outputs.cosmosDbDatabaseName
+      }
+      {
+        name: 'COSMOS_CONTAINER_NAME'
+        value: cosmosDocumentIndex.outputs.cosmosDbContainerNames[0]
+      }
+      {
+        name: 'EMBEDDING_DIMENSIONS'
+        value: '1536'
       }
     ]
     targetPort: 80
@@ -635,9 +954,75 @@ module aiSearchRoleAssignments 'cognitive-services/ai-search-role-assignments.bi
     aiSearchName: search.outputs.name
     projectPrincipalId: aiProject.outputs.projectPrincipalId
   }
-  dependsOn:[
-    cosmosAccountRoleAssignments, storageAccountRoleAssignment
+  dependsOn: [
+    cosmosAccountRoleAssignments
+    storageAccountRoleAssignment
   ]
+}
+
+resource checkCapabilityHosts 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
+  name: 'checkCapabilityHosts'
+  location: location
+  kind: 'AzureCLI'
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${userAssignedManagedIdentity.id}': {}
+    }
+  }
+  properties: {
+    azCliVersion: '2.50.0'
+    scriptContent: '''
+      # Debug: Print environment variables
+      echo "Checking capability hosts..."
+      echo "SUBSCRIPTION_ID: ${SUBSCRIPTION_ID}"
+      echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+      echo "ACCOUNT_NAME: ${ACCOUNT_NAME}"
+      echo "PROJECT_NAME: ${PROJECT_NAME}"
+      echo "ACCOUNT_CAP_HOST: ${ACCOUNT_CAP_HOST}"
+      echo "PROJECT_CAP_HOST: ${PROJECT_CAP_HOST}"
+      
+      # Check account capability host
+      accountExists="false"
+      account_url="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.CognitiveServices/accounts/${ACCOUNT_NAME}/capabilityHosts/${ACCOUNT_CAP_HOST}?api-version=2025-06-01"
+      echo "Checking account capability host URL: ${account_url}"
+      
+      if az rest --method GET --url "${account_url}"; then
+        echo "Account capability host EXISTS"
+        accountExists="true"
+      else
+        echo "Account capability host does NOT exist"
+        accountExists="false"
+      fi
+      
+      # Check project capability host
+      projectExists="false"
+      project_url="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.CognitiveServices/accounts/${ACCOUNT_NAME}/projects/${PROJECT_NAME}/capabilityHosts/${PROJECT_CAP_HOST}?api-version=2025-06-01"
+      echo "Checking project capability host URL: ${project_url}"
+      
+      if az rest --method GET --url "${project_url}"; then
+        echo "Project capability host EXISTS"
+        projectExists="true"
+      else
+        echo "Project capability host does NOT exist"
+        projectExists="false"
+      fi
+      
+      # Output results
+      echo "Final results: accountExists=${accountExists}, projectExists=${projectExists}"
+      echo "{\"accountCapHostExists\": ${accountExists}, \"projectCapHostExists\": ${projectExists}}" > $AZ_SCRIPTS_OUTPUT_PATH
+    '''
+    environmentVariables: [
+      { name: 'SUBSCRIPTION_ID', value: subscription().subscriptionId }
+      { name: 'RESOURCE_GROUP', value: resourceGroup().name }
+      { name: 'ACCOUNT_NAME', value: cognitiveServices1.outputs.name }
+      { name: 'PROJECT_NAME', value: aiProject.outputs.projectName }
+      { name: 'ACCOUNT_CAP_HOST', value: 'accountagents' }
+      { name: 'PROJECT_CAP_HOST', value: 'projectagents' }
+    ]
+    timeout: 'PT5M'
+    retentionInterval: 'PT1H'
+  }
 }
 
 module addProjectCapabilityHost 'cognitive-services/add-project-capability-host.bicep' = {
@@ -651,9 +1036,14 @@ module addProjectCapabilityHost 'cognitive-services/add-project-capability-host.
 
     projectCapHost: 'projectagents'
     accountCapHost: 'accountagents'
+
+    accountCapHostExists: bool(checkCapabilityHosts.properties.outputs.accountCapHostExists)
+    projectCapHostExists: bool(checkCapabilityHosts.properties.outputs.projectCapHostExists)
   }
   dependsOn: [
-    aiSearchRoleAssignments, cosmosAccountRoleAssignments, storageAccountRoleAssignment
+    aiSearchRoleAssignments
+    cosmosAccountRoleAssignments
+    storageAccountRoleAssignment
   ]
 }
 
@@ -677,10 +1067,10 @@ module cosmosContainerRoleAssignment 'cognitive-services/cosmos-container-role-a
     projectWorkspaceId: formatProjectWorkspaceId.outputs.projectWorkspaceIdGuid
   }
   dependsOn: [
-    addProjectCapabilityHost, storageContainerRoleAssignment
+    addProjectCapabilityHost
+    storageContainerRoleAssignment
   ]
 }
-
 
 // Managed Identity to Agent Service Role Assignment
 module aiUserRoleAssignmentUAMI 'auth/role-assignment.bicep' = {
@@ -724,14 +1114,18 @@ output API_BASE_URL string = apiContainerApp.outputs.uri
 output REACT_APP_WEB_BASE_URL string = webContainerApp.outputs.uri
 output SERVICE_API_NAME string = apiContainerApp.outputs.name
 output SERVICE_WEB_NAME string = webContainerApp.outputs.name
-
+output AZURE_FUNCTIONAPP_MCP_NAME string = mcpSearchIndexFunctionApp.outputs.name
+output AZURE_FUNCTIONAPP_MCP_FUNCTION_NAME string = 'event_grid_blob_trigger'
+output USER_ASSIGNED_MANAGED_IDENTITY_ID string = userAssignedManagedIdentity.id
+output AZURE_APPCONFIG_NAME string = appConfig.outputs.name
 
 // AI Project outputs
 output AI_PROJECT_NAME string = aiProject.outputs.projectName
 output AI_PROJECT_ENDPOINT string = aiProject.outputs.projectEndpoint
 
-
 output AZURE_STORAGE_ACCOUNT_NAME string = storageAccount.outputs.storageAccountName
 output AZURE_SEARCH_SERVICE_NAME string = search.outputs.name
 output AZURE_OPENAI_ENDPOINT string = cognitiveServices1.outputs.endpoint
 output AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME string = openAIDeployments1.outputs.embeddingDeploymentName
+// Expose the resolved naming prefix so post-deploy scripts (e.g., Event Grid subscription naming) can align
+output EVENTGRID_RESOURCE_PREFIX string = prefix

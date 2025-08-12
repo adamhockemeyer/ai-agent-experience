@@ -1,5 +1,5 @@
 name: aiagents
-services:  
+services:
   api:
     project: ./src/api
     language: py
@@ -16,52 +16,67 @@ services:
     project: ./src/api-sap
     language: py
     host: function
-# hooks:
-#   postprovision:
-#       - windows:
-#           shell: pwsh
-#           run: |
-#             # Extract environment variables without quotes
-#             $storageName = $(azd env get-values --no-prompt | Select-String -Pattern "AZURE_STORAGE_ACCOUNT_NAME=(.+)" | ForEach-Object { $_.Matches.Groups[1].Value.Trim('"').Trim("'") })
-            
-#             # Upload documents to blob storage
-#             pwsh ./scripts/document_upload.ps1 -storage_account_name $storageName -blob_container_name "documents" -local_documents_path ".\documents"
-#           continueOnError: true
-#           interactive: true
-#       - windows:
-#           shell: pwsh
-#           run: |
-#             # Extract environment variables without quotes
-#             $searchName = $(azd env get-values --no-prompt | Select-String -Pattern "AZURE_SEARCH_SERVICE_NAME=(.+)" | ForEach-Object { $_.Matches.Groups[1].Value.Trim('"').Trim("'") })
-#             $openaiName = $(azd env get-values --no-prompt | Select-String -Pattern "AZURE_OPENAI_SERVICE_NAME=(.+)" | ForEach-Object { $_.Matches.Groups[1].Value.Trim('"').Trim("'") })
-#             $openaiEndpoint = "https://$openaiName.openai.azure.com/"
-            
-#             # Set up search indexes for each document folder
-#             pwsh ./scripts/setup_search_indexes.ps1 -embedding_deployment_name "embedding"
-#           continueOnError: true
-#           interactive: true
-        # - posix:
-        #     shell: sh
-        #     run: |
-        #       # Extract environment variables without quotes
-        #       storageName=$(azd env get-values --no-prompt | grep AZURE_STORAGE_ACCOUNT_NAME | cut -d '=' -f2 | tr -d '"' | tr -d "'")
-              
-        #       # Upload documents to blob storage
-        #       chmod +x ./scripts/document_upload.sh
-        #       ./scripts/document_upload.sh --storage-account-name "$storageName" --blob-container-name "documents" --local-documents-path "./documents"
-        #     continueOnError: true
-        #     interactive: true
-        # - posix:
-        #     shell: sh
-        #     run: |
-        #       # Extract environment variables without quotes
-        #       searchName=$(azd env get-values --no-prompt | grep AZURE_SEARCH_SERVICE_NAME | cut -d '=' -f2 | tr -d '"' | tr -d "'")
-        #       openaiName=$(azd env get-values --no-prompt | grep AZURE_OPENAI_SERVICE_NAME | cut -d '=' -f2 | tr -d '"' | tr -d "'")
-        #       openaiEndpoint="https://${openaiName}.openai.azure.com/"
-              
-        #       # Set up search indexes for each document folder
-        #       chmod +x ./scripts/setup_search_indexes.sh
-        #       ./scripts/setup_search_indexes.sh --embedding-deployment-name "embedding"
-        #     continueOnError: true
-        #     interactive: true
-
+  api-mcp-search-index:
+    project: ./src/api-mcp-search-index
+    language: py
+    host: function
+hooks:
+  # TIP: Install 'jq' on posix systems (or Git Bash) for more accurate Event Grid existing topic detection.
+  postdeploy:
+    - windows:
+        run: .\scripts\setup-event-grid.ps1 -StorageAccountName $env:AZURE_STORAGE_ACCOUNT_NAME -ResourceGroupName $env:AZURE_RESOURCE_GROUP -FunctionAppName $env:AZURE_FUNCTIONAPP_MCP_NAME -EnvironmentName $env:AZURE_ENV_NAME -Location $env:AZURE_LOCATION
+        shell: pwsh
+        interactive: true
+        continueOnError: false
+      posix:
+        run: ./scripts/setup-event-grid.sh --storage-account-name "$AZURE_STORAGE_ACCOUNT_NAME" --resource-group-name "$AZURE_RESOURCE_GROUP" --function-app-name "$AZURE_FUNCTIONAPP_MCP_NAME" --environment-name "$AZURE_ENV_NAME" --location "$AZURE_LOCATION"
+        shell: sh
+        interactive: true
+        continueOnError: false
+    - windows:
+        run: |
+          $storageName = $(azd env get-values --no-prompt | Select-String -Pattern "AZURE_STORAGE_ACCOUNT_NAME=(.+)" | ForEach-Object { $_.Matches.Groups[1].Value.Trim('"').Trim("'") })
+          if ($storageName) {
+            pwsh ./scripts/document_upload_if_missing.ps1 -storage_account_name $storageName -blob_container_name "documents" -local_documents_path ".\documents"
+          } else { Write-Host "⚠️  Could not resolve AZURE_STORAGE_ACCOUNT_NAME. Skipping upload." }
+        shell: pwsh
+        interactive: true
+        continueOnError: true
+      posix:
+        run: |
+          storageName=$(azd env get-values --no-prompt | grep AZURE_STORAGE_ACCOUNT_NAME | cut -d '=' -f2 | tr -d '"' | tr -d "'")
+          if [ -n "$storageName" ]; then
+            chmod +x ./scripts/document_upload_if_missing.sh
+            ./scripts/document_upload_if_missing.sh --storage-account-name "$storageName" --blob-container-name "documents" --local-documents-path "./documents"
+          else
+            echo "⚠️  Could not resolve AZURE_STORAGE_ACCOUNT_NAME. Skipping upload."
+          fi
+        shell: sh
+        interactive: true
+        continueOnError: true
+    - windows:
+        run: |
+          Write-Host "--- Deploying Document Search Agent Config to Azure App Configuration ---"
+          az deployment group create `
+            --resource-group $env:AZURE_RESOURCE_GROUP `
+            --template-file ./infra/app-configuration/agent_document_search_config.bicep `
+            --parameters appConfigName=$env:AZURE_APPCONFIG_NAME `
+                         functionAppName=$env:AZURE_FUNCTIONAPP_MCP_NAME `
+                         identityId=$env:USER_ASSIGNED_MANAGED_IDENTITY_ID `
+                         location=$env:AZURE_LOCATION
+        shell: pwsh
+        interactive: true
+        continueOnError: false
+      posix:
+        run: |
+          echo "--- Deploying Document Search Agent Config to Azure App Configuration ---"
+          az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file ./infra/app-configuration/agent_document_search_config.bicep \
+            --parameters appConfigName="$AZURE_APPCONFIG_NAME" \
+                         functionAppName="$AZURE_FUNCTIONAPP_MCP_NAME" \
+                         identityId="$USER_ASSIGNED_MANAGED_IDENTITY_ID" \
+                         location="$AZURE_LOCATION"
+        shell: sh
+        interactive: true
+        continueOnError: false

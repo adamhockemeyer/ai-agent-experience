@@ -90,13 +90,48 @@ Requirements
     azd up
     ```
 
+## MCP Tool Configuration Examples
+
+The AI Agents platform supports Model Context Protocol (MCP) tools for extending agent capabilities. Here are some common MCP tool configuration examples:
+
+### Document Search MCP Server (SSE)
+```json
+{
+  "mcpServers": {
+    "documentSearch": {
+      "type": "sse", 
+      "url": "https://your-function-app.azurewebsites.net/runtime/webhooks/mcp/sse",
+      "auth": {
+        "headers": {
+          "x-functions-key": "your-function-key-here-mcp_extension"
+        }
+      }
+    }
+  }
+}
+```
+
+### Playwright Browser Automation MCP Server
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--headless",
+        "--no-sandbox"
+      ]
+    }
+  }
+}
+```
+
+
+> **Note**: Replace placeholder values like `your-function-app.azurewebsites.net` and `your-function-key-here` with your actual deployment values. Function keys can be found in the Azure Portal under your Function App's "App keys" section, and use the `mcp_extension` key.
+
 ## Notes
 
-### Work in progress features
-- File Upload
-- Code interpreter (infra is done)
-- Remote MCP Server (STIO currently implemented)
-- Add AI Search Example
 
 ### Appendix
 ---
@@ -107,6 +142,50 @@ Requirements
 The `--reload` flag seems to cause issues on Windows when trying to run MCP plugins. Remove the flag. 
 
 [Remove --reload flag, for FastAPI](https://github.com/modelcontextprotocol/python-sdk/issues/359#issuecomment-2761351547)
+
+### Event Grid System Topic Handling
+
+Azure only allows **one Event Grid system topic per storage account**, but that topic can have **multiple subscriptions**. Some Azure services automatically create system topics, which can cause deployment conflicts. 
+
+The deployment uses a smart approach via the `event-grid-conditional.bicep` module that:
+
+1. **Checks for existing system topics** for the storage account across the entire subscription
+2. **Uses the existing topic** if found, or **creates a new one** if none exists
+3. **Always creates a new subscription** on the topic (existing or new) for the MCP search index function
+4. **Handles race conditions** where a topic might be created between the check and creation attempt
+
+#### How it works:
+
+The deployment script:
+- Searches for any existing system topic that matches your storage account
+- If found: Uses that existing topic and creates a subscription on it
+- If not found: Creates a new system topic and then creates a subscription
+- If creation fails (race condition): Re-searches and uses the topic that was created
+
+This approach is **fully automated** and handles the most common scenarios:
+- ✅ Fresh deployment (no existing topics)
+- ✅ Existing topic created by Azure automation
+- ✅ Existing topic created by previous deployment
+- ✅ Race conditions during concurrent deployments
+
+#### If you encounter issues:
+
+**Manual cleanup** (only if needed):
+```bash
+# List all system topics for your storage account
+az eventgrid system-topic list --query "[?contains(source, 'your-storage-account-name')]" -o table
+
+# If needed, delete conflicting subscriptions (not the topic itself)
+az eventgrid event-subscription delete --name "subscription-name" --source-resource-id "topic-resource-id"
+```
+
+**Check deployment logs** if the script fails:
+```bash
+# View deployment script logs
+az deployment group show --resource-group "your-rg" --name "your-deployment-name" --query "properties.outputs"
+```
+
+The automated approach eliminates the need for manual pre-deployment scripts in most cases!
 
 ### App Configuration Limits
 

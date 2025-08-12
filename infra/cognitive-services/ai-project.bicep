@@ -48,12 +48,12 @@ resource bingSearch 'Microsoft.Bing/accounts@2025-05-01-preview' existing = {
   scope: resourceGroup(bingSearchSubscriptionId, bingSearchResourceGroupName)
 }
 
-resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
+resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
   name: accountName
   scope: resourceGroup()
 }
 
-resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' = {
+resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   parent: account
   name: projectName
   location: location
@@ -65,7 +65,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     displayName: displayName
   }
 
-  resource project_connection_cosmosdb_account 'connections@2025-04-01-preview' = {
+  resource project_connection_cosmosdb_account 'connections@2025-06-01' = {
     name: cosmosDBName
     properties: {
       category: 'CosmosDB'
@@ -79,7 +79,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     }
   }
 
-  resource project_connection_azure_storage 'connections@2025-04-01-preview' = {
+  resource project_connection_azure_storage 'connections@2025-06-01' = {
     name: azureStorageName
     properties: {
       category: 'AzureStorageAccount'
@@ -93,7 +93,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     }
   }
 
-  resource project_connection_azureai_search 'connections@2025-04-01-preview' = {
+  resource project_connection_azureai_search 'connections@2025-06-01' = {
     name: aiSearchName
     properties: {
       category: 'CognitiveSearch'
@@ -108,7 +108,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
   }
 
   // Creates the Azure Foundry connection to your Azure App Insights resource
-  resource connection 'connections@2025-04-01-preview' = {
+  resource connection 'connections@2025-06-01' = {
     name: appInsightsName
     properties: {
       category: 'AppInsights'
@@ -125,7 +125,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     }
   }
 
-  resource bing_search_account_connection 'connections@2025-04-01-preview' = {
+  resource bing_search_account_connection 'connections@2025-06-01' = {
     name: '${bingSearchName}-bingsearchconnection'
     properties: {
       category: 'ApiKey'

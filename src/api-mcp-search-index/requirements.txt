@@ -1,0 +1,26 @@
+# DO NOT include azure-functions-worker in this file
+# The Python Worker is managed by Azure Functions platform
+# Manually managing azure-functions-worker may cause unexpected issues
+
+azure-functions
+azure-cosmos
+azure-identity
+azure-storage-blob
+azure-ai-textanalytics
+
+# OpenAI client for embeddings
+openai
+
+# Document processing and chunking
+markitdown[all]
+langchain-text-splitters
+tiktoken
+
+# Pydantic for data models
+pydantic
+pydantic-settings
+
+# Utility libraries
+python-dotenv
+tenacity
+typing-extensions

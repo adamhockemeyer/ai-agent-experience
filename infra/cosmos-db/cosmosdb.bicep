@@ -7,11 +7,21 @@ param accountName string
 @description('The name of the database.')
 param databaseName string
 
-@description('The names of the collections within the database.')
-param collectionNames array
+@description('Container specifications with different configurations')
+param containerConfigurations array = [
+  {
+    name: 'chatHistory'
+    partitionKey: '/partitionKey'
+    enableVectorSearch: false
+    enableFullTextSearch: false
+  }
+]
 
-@description('The the partition key for the collections.')
+@description('The the partition key for the collections (backward compatibility).')
 param partitionKey string = 'partitionKey'
+
+@description('Embedding dimensions for vector search')
+param embeddingDimensions int = 1536
 
 param sqlRoleAssignments array = []
 
@@ -47,19 +57,83 @@ resource cosmosDbDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@20
 }
 
 resource cosmosDbContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-05-01-preview' = [
-  for collection in collectionNames: {
+  for config in containerConfigurations: {
     parent: cosmosDbDatabase
-    name: collection
+    name: config.name
     properties: {
-      resource: {
-        id: collection
-        partitionKey: {
-          paths: ['/${partitionKey}']
-          kind: 'Hash'
-        }
-        // TTL set to -1 means it is enabled for teh container, but no automatic expiration of items
-        defaultTtl: -1
-      }
+      resource: union(
+        {
+          id: config.name
+          partitionKey: {
+            paths: [config.partitionKey]
+            kind: 'Hash'
+          }
+          // TTL set to -1 means it is enabled for the container, but no automatic expiration of items
+          defaultTtl: -1
+        },
+        config.enableVectorSearch
+          ? {
+              // Vector embedding policy for AI search
+              vectorEmbeddingPolicy: {
+                vectorEmbeddings: [
+                  {
+                    path: '/embedding'
+                    dataType: 'float32'
+                    distanceFunction: 'cosine'
+                    dimensions: embeddingDimensions
+                  }
+                ]
+              }
+              // Indexing policy with vector indexes
+              indexingPolicy: {
+                indexingMode: 'consistent'
+                automatic: true
+                includedPaths: [
+                  { path: '/*' }
+                ]
+                excludedPaths: [
+                  { path: '/embedding/*' } // Exclude vector path for performance
+                ]
+                vectorIndexes: [
+                  {
+                    path: '/embedding'
+                    type: 'diskANN'
+                  }
+                ]
+                fullTextIndexes: config.enableFullTextSearch
+                  ? [
+                      {
+                        path: '/content'
+                      }
+                    ]
+                  : []
+              }
+            }
+          : {
+              // Basic indexing policy for non-vector containers
+              indexingPolicy: {
+                indexingMode: 'consistent'
+                automatic: true
+                includedPaths: [
+                  { path: '/*' }
+                ]
+              }
+            },
+        config.enableFullTextSearch
+          ? {
+              // Full-text search policy for hybrid search
+              fullTextPolicy: {
+                defaultLanguage: 'en-US'
+                fullTextPaths: [
+                  {
+                    path: '/content'
+                    language: 'en-US'
+                  }
+                ]
+              }
+            }
+          : {}
+      )
       options: {
         autoscaleSettings: {
           maxThroughput: 4000
@@ -83,7 +157,7 @@ resource roleAssignmentsResource 'Microsoft.DocumentDB/databaseAccounts/sqlRoleA
 
 output cosmosDbAccountName string = cosmosDbAccount.name
 output cosmosDbDatabaseName string = cosmosDbDatabase.name
-output cosmosDbContainerNames array = [for collection in collectionNames: collection]
+output cosmosDbContainerNames array = [for config in containerConfigurations: config.name]
 output cosmosDbEndpoint string = cosmosDbAccount.properties.documentEndpoint
 output cosmosDbPartitionKey string = partitionKey
 output cosmosDbId string = cosmosDbAccount.id

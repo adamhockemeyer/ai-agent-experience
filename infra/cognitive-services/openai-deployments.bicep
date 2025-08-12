@@ -33,7 +33,7 @@ var defaultDeployments = [
     }
     sku: {
       name: 'Standard'
-      capacity: 20
+      capacity: 50
     }
   }
 ]

@@ -13,12 +13,12 @@
                 "run",
                 "dev",
                 "--",
-                "--turbo" // Add Turbopack for faster builds
+                "--turbo"
             ],
             "cwd": "${workspaceFolder}/src/frontend/app",
             "sourceMaps": true,
             "resolveSourceMapLocations": [
-                "${workspaceFolder}/src/frontend/app/**", // More specific path
+                "${workspaceFolder}/src/frontend/app/**",
                 "!**/node_modules/**"
             ],
             "skipFiles": [
@@ -26,13 +26,13 @@
                 "**/node_modules/**"
             ],
             "outFiles": [
-                "${workspaceFolder}/src/frontend/app/.next/**/*.js" // Broader .next pattern
+                "${workspaceFolder}/src/frontend/app/.next/**/*.js"
             ],
             "console": "integratedTerminal",
-            "restart": true, // Enable automatic restart
+            "restart": true,
             "env": {
                 "NODE_ENV": "development",
-                "NEXT_TELEMETRY_DISABLED": "1" // Disable Next.js telemetry
+                "NEXT_TELEMETRY_DISABLED": "1"
             }
         },
         {
@@ -49,11 +49,9 @@
             "name": "Python FastAPI",
             "type": "debugpy",
             "request": "launch",
-            // Point to the Python executable in .venv/Scripts
             "module": "uvicorn",
             "args": [
                 "app.main:app",
-                //"--reload",
                 "--env-file",
                 ".env",
                 "--log-level",
@@ -61,6 +59,16 @@
             ],
             "jinja": true,
             "cwd": "${workspaceFolder}/src/api"
+        },
+        {
+            "name": "Attach to Python Functions",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 9091
+            },
+            "preLaunchTask": "func: host start"
         }
     ],
     "compounds": [

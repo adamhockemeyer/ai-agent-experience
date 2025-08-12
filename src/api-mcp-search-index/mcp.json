@@ -1,0 +1,28 @@
+{
+    "servers": {
+        "local-document-search": {
+            "type": "sse",
+            "url": "http://localhost:7071/runtime/webhooks/mcp/sse"
+        },
+        "remote-document-search": {
+            "type": "sse",
+            "url": "https://${input:function-app-name}.azurewebsites.net/runtime/webhooks/mcp/sse",
+            "headers": {
+                "x-functions-key": "${input:mcp-extension-system-key}"
+            }
+        }
+    },
+    "inputs": [
+        {
+            "type": "promptString",
+            "id": "function-app-name",
+            "description": "Azure Function App Name"
+        },
+        {
+            "type": "promptString",
+            "id": "mcp-extension-system-key",
+            "description": "Azure Functions MCP Extension System Key",
+            "password": true
+        }
+    ]
+}

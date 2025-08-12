@@ -52,15 +52,18 @@ resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01
   name: 'default'
 }
 
-resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = [for containerName in containerNames: {
-  parent: blobServices
-  name: containerName
-  properties: {
-    publicAccess: 'None'
+resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = [
+  for containerName in containerNames: {
+    parent: blobServices
+    name: containerName
+    properties: {
+      publicAccess: 'None'
+    }
   }
-}
 ]
 
 output storageAccountName string = storage.name
 output containerNames array = containerNames
 output id string = storage.id
+output primaryBlobEndpoint string = storage.properties.primaryEndpoints.blob
+output primaryQueueEndpoint string = storage.properties.primaryEndpoints.queue

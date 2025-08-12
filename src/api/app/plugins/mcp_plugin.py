@@ -59,10 +59,10 @@ class MCPPluginHandler(PluginBase):
                     # Extract environment variables if present
                     env_vars = server_config.get("env")
                     
-                    # Check if this is a remote MCP server
-                    if server_config.get("type") == "remote":
+                    # Check if this is a SSE MCP server
+                    if server_config.get("type") == "sse":
                         plugin = self._create_remote_mcp_plugin(server_config, plugin_name, description)
-                        logger.info(f"Creating remote MCP plugin for '{plugin_name}'")
+                        logger.info(f"Creating SSE MCP plugin for '{plugin_name}'")
                     else:
                         # Default to local MCP plugin
                         command = server_config.get("command")
@@ -77,9 +77,9 @@ class MCPPluginHandler(PluginBase):
                     # Extract environment variables if present
                     env_vars = config.get("env")
                       # Process direct config (should be indented inside the else block)
-                    if config.get("type") == "remote":
+                    if config.get("type") == "sse":
                         plugin = self._create_remote_mcp_plugin(config, plugin_name, description)
-                        logger.info(f"Creating remote MCP plugin for '{plugin_name}'")
+                        logger.info(f"Creating SSE MCP plugin for '{plugin_name}'")
                     else:
                         command = config.get("command")
                         args = config.get("args", [])
@@ -133,9 +133,9 @@ class MCPPluginHandler(PluginBase):
     def _create_remote_mcp_plugin(self, config: Dict[str, Any], 
                                  name: str, description: str) -> MCPSsePlugin:
         """Create a remote MCP plugin that connects to a remote endpoint."""
-        endpoint = config.get("endpoint")
-        if not endpoint:
-            raise ValueError(f"Missing endpoint for remote MCP plugin: {name}")
+        url = config.get("url") or config.get("endpoint")
+        if not url:
+            raise ValueError(f"Missing url/endpoint for SSE MCP plugin: {name}")
         
         headers = {}
         
@@ -155,13 +155,13 @@ class MCPPluginHandler(PluginBase):
             elif "headers" in auth_config:
                 headers.update(auth_config["headers"])
         
-        # Create the remote MCP plugin
+        # Create the SSE MCP plugin
         return MCPSsePlugin(
             name=name,
+            url=url,
             description=description,
-            endpoint=endpoint,
             headers=headers,
-            connection_timeout=self.settings.mcp_timeout_seconds
+            timeout=self.settings.mcp_timeout_seconds
         )
     
     def _find_npx_path(self) -> Optional[str]:

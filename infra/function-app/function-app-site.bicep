@@ -129,17 +129,17 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
 }
 
 // Add Storage Blob Data Owner role assignment if using managed identity
-var storageRoleDefinitionId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b' // Storage Blob Data Owner role
+// var storageRoleDefinitionId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b' // Storage Blob Data Owner role
 
-resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = if (!empty(storageAccountName) && identityType != 'None') {
-  name: guid(resourceId('Microsoft.Storage/storageAccounts', storageAccountName), storageRoleDefinitionId, name)
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', storageRoleDefinitionId)
-    principalId: principalId
-    principalType: 'ServicePrincipal'
-  }
-}
+// resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = if (!empty(storageAccountName) && identityType != 'None') {
+//   name: guid(resourceId('Microsoft.Storage/storageAccounts', storageAccountName), storageRoleDefinitionId, name)
+//   scope: storageAccount
+//   properties: {
+//     roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', storageRoleDefinitionId)
+//     principalId: principalId
+//     principalType: 'ServicePrincipal'
+//   }
+// }
 
 @description('Resource ID of the function app')
 output resourceId string = functionApp.id
