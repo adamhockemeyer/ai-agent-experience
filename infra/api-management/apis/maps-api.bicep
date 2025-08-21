@@ -10,7 +10,7 @@ var api = {
   name: 'azure-maps-weather-service'
   description: 'Azure Maps Weather Service provides real-time weather data for a given location.'
   path: 'weather'
-  openapispec: 'https://raw.githubusercontent.com/Azure/azure-rest-api-specs/refs/heads/main/specification/maps/data-plane/Microsoft.Maps/Weather/preview/1.0/weather.json'
+  openapispec: 'https://raw.githubusercontent.com/Azure/azure-rest-api-specs/refs/heads/main/specification/maps/data-plane/Weather/preview/1.0/weather.json'
 }
 
 resource apiDefinitions 'Microsoft.ApiManagement/service/apis@2023-09-01-preview' = {
