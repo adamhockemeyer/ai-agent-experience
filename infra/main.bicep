@@ -349,14 +349,14 @@ module weatherAgentConfig 'app-configuration/agent_weather_agent_config.bicep' =
   }
 }
 
-module playwrightAgentConfig 'app-configuration/agent_playwright_agent_config.bicep' = {
-  name: '${prefix}-playwright-agent-config'
-  params: {
-    appConfigName: appConfig.outputs.name
-    location: location
-    identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
-  }
-}
+// module playwrightAgentConfig 'app-configuration/agent_playwright_agent_config.bicep' = {
+//   name: '${prefix}-playwright-agent-config'
+//   params: {
+//     appConfigName: appConfig.outputs.name
+//     location: location
+//     identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+//   }
+// }
 
 module sapAgentConfig 'app-configuration/agent_sap_agent_config.bicep' = {
   name: '${prefix}-sap-agent-config'
@@ -682,6 +682,24 @@ resource storageQueueRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments
   }
 }
 
+// Assign Storage Account Contributor role to allow management operations on the storage account
+// (e.g., setting properties, listing keys if needed by downstream processes)
+resource storageAccountContributorRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(
+    userAssignedManagedIdentity.id,
+    sharedRoleDefinitions['Storage Account Contributor'],
+    storageAccount.name
+  )
+  properties: {
+    roleDefinitionId: resourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      sharedRoleDefinitions['Storage Account Contributor']
+    )
+    principalId: userAssignedManagedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // // Assign EventGrid Contributor role to the user-assigned managed identity
 // // This allows the identity to create and manage Event Grid system topics and subscriptions
 resource eventGridRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
@@ -694,6 +712,63 @@ resource eventGridRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments@20
     principalId: userAssignedManagedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
+}
+
+// --- Event Grid System Topic auto-discovery / creation and subscription (replaces postdeploy script) ---
+@description('Base name used if a new Event Grid system topic must be created')
+var eventGridSystemTopicBaseName = '${prefix}-storage-topic'
+
+// Deterministic Event Grid system topic for the storage account (idempotent create)
+resource storageSystemTopic 'Microsoft.EventGrid/systemTopics@2023-12-15-preview' = {
+  name: eventGridSystemTopicBaseName
+  location: location
+  properties: {
+    source: resourceId('Microsoft.Storage/storageAccounts', storageAccount.outputs.storageAccountName)
+    topicType: 'microsoft.storage.storageaccounts'
+  }
+  dependsOn: [
+    storageAccount
+  ]
+}
+
+// Event subscription targeting the MCP function's blob trigger function
+resource storageBlobEventSubscription 'Microsoft.EventGrid/systemTopics/eventSubscriptions@2023-12-15-preview' = {
+  name: '${storageSystemTopic.name}/mcp-search-index-subscription'
+  properties: {
+    destination: {
+      endpointType: 'AzureFunction'
+      properties: {
+        resourceId: '${mcpFunctionAppExisting.id}/functions/event_grid_blob_trigger'
+        maxEventsPerBatch: 1
+        preferredBatchSizeInKilobytes: 64
+      }
+    }
+    filter: {
+      includedEventTypes: [
+        'Microsoft.Storage.BlobCreated'
+        'Microsoft.Storage.BlobDeleted'
+      ]
+      subjectBeginsWith: '/blobServices/default/containers/documents/'
+      subjectEndsWith: ''
+      isSubjectCaseSensitive: false
+    }
+    deadLetterDestination: {
+      endpointType: 'StorageBlob'
+      properties: {
+        resourceId: resourceId('Microsoft.Storage/storageAccounts', storageAccount.outputs.storageAccountName)
+        blobContainerName: 'eventgrid-deadletter'
+      }
+    }
+    retryPolicy: {
+      maxDeliveryAttempts: 30
+      eventTimeToLiveInMinutes: 1440
+    }
+    eventDeliverySchema: 'EventGridSchema'
+  }
+  dependsOn: [
+  storageSystemTopic
+    mcpSearchIndexFunctionApp
+  ]
 }
 
 module containerRegistry 'container-apps/container-registry.bicep' = {
@@ -1129,3 +1204,4 @@ output AZURE_OPENAI_ENDPOINT string = cognitiveServices1.outputs.endpoint
 output AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME string = openAIDeployments1.outputs.embeddingDeploymentName
 // Expose the resolved naming prefix so post-deploy scripts (e.g., Event Grid subscription naming) can align
 output EVENTGRID_RESOURCE_PREFIX string = prefix
+

@@ -1,0 +1,167 @@
+openapi: 3.0.3
+info:
+  title: Azure AI Search
+  version: 1.1.0
+  description: |
+    Direct call to the Azure AI Search service (no APIM body transformation required).
+    Send the native Azure Search JSON payload with only the fields you need.
+    This keeps client + LLM logic simple and avoids a custom APIM policy layer.
+servers:
+  - url: https://gca7-aiagents-search.search.windows.net
+    description: Azure AI Search service endpoint
+paths:
+  /indexes/{index}/docs/search:
+    post:
+      summary: Azure AI Search (semantic optional)
+      operationId: searchDirect
+      parameters:
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: string
+            default: rag-1755627660640
+          description: Name of the target search index.
+        - name: api-version
+          in: query
+          required: true
+          schema:
+            type: string
+            default: 2025-05-01-Preview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                search:
+                  type: string
+                  description: Search text (natural language query).
+                top:
+                  type: integer
+                  default: 5
+                  minimum: 1
+                  maximum: 50
+                  description: Max number of results to return.
+                select:
+                  type: string
+                  default: id,title,chunk,sourceUrl
+                  description: A comma-separated list of fields to return in the search results.  For consistency and clarity, you should always explicitly specify these fields in the `select` parameter `id,title,chunk,sourceUrl` to avoid relying on default behavior. This ensures predictable and uniform result structures regardless of future changes to tool defaults.
+                queryType:
+                  type: string
+                  enum: [simple, semantic]
+                  default: semantic
+                  description: Use 'semantic' for semantic ranking, else 'simple'.
+                semanticConfiguration:
+                  type: string
+                  default: default
+                  description: Semantic configuration name (required if queryType=semantic).
+                answers:
+                  type: string
+                  enum: [extractive|count-1, extractive|count-3]
+                  description: Enable extractive answers (omit to disable).
+                captions:
+                  type: string
+                  enum: [extractive|highlighted, extractive]
+                  description: Enable extractive captions (omit to disable).
+                vectorQueries:
+                  type: array
+                  description: Optional vector or text-to-vector queries (2024-07-01). Omit if not using vector.
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      kind:
+                        type: string
+                        enum: [text, vector]
+                      text:
+                        type: string
+                        description: Raw text to embed when kind=text.
+                      k:
+                        type: integer
+                        default: 50
+                        description: K nearest neighbors.
+                      fields:
+                        type: string
+                        description: Target vector field(s) (e.g. text_vector).
+                queryLanguage:
+                  type: string
+                  default: en-us
+            examples:
+              minimal:
+                summary: Simple semantic search
+                value:
+                  search: "application rates"
+              semanticWithAnswers:
+                summary: Semantic with answers & captions
+                value:
+                  search: "application rates"
+                  answers: extractive|count-1
+                  captions: extractive|highlighted
+              withVector:
+                summary: Combine semantic + vector (text kind)
+                value:
+                  search: "application rates"
+                  vectorQueries:
+                    - kind: text
+                      text: "application rates"
+                      k: 50
+                      fields: text_vector
+      responses:
+        "200":
+          description: Native Azure Search response
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Partial representation (full schema per Azure docs).
+                properties:
+                  value:
+                    type: array
+                    items:
+                      type: object
+                      description: Document plus search metadata.
+                      properties:
+                        id: { type: string }
+                        title: { type: string }
+                        chunk: { type: string }
+                        sourceUrl: { type: string }
+                        "@search.score": { type: number }
+                        "@search.highlights":
+                          type: object
+                          additionalProperties:
+                            type: array
+                            items: { type: string }
+                  "@odata.count":
+                    type: integer
+                  "@search.answers":
+                    type: array
+                    items:
+                      type: object
+              examples:
+                sample:
+                  summary: Example response
+                  value:
+                    "@odata.count": 1
+                    value:
+                      - id: doc1
+                        title: Application Rates Overview
+                        chunk: Application rates depend on ...
+                        sourceUrl: https://example/doc1
+                        "@search.score": 4.2
+                        "@search.highlights":
+                          chunk: ["<em>application rates</em> depend"]
+        "400": { description: Bad request }
+        "401": { description: Unauthorized (invalid / missing key or token) }
+        "403": { description: Forbidden (RBAC / permissions) }
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: api-key
+      description: Azure AI Search admin or query key. Omit if using Azure AD token (RBAC).
+security:
+  - apiKey: []
