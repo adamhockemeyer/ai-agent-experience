@@ -16,6 +16,7 @@ from app.services.kernel_factory import KernelFactory
 from app.services.thread_storage import ThreadStorage
 from app.services.function_call_stream import FunctionCallStream
 from app.services.file_processor import FileProcessor
+
 from app.config.config import get_settings
 
 # Semantic Kernel imports for multimodal support
@@ -114,6 +115,9 @@ class ChatService:
                             # Create a ChatMessageContent with the role USER
                             chat_message = ChatMessageContent(role=AuthorRole.USER, items=content_items)
                             
+                            # Track active function calls to analyze results
+                            active_function_calls = {}
+                            
                             # Invoke the agent with the chat message
                             logger.info(f"Invoking agent with {len(content_items)} content items")
                             async for response in ai_agent.invoke_stream(
@@ -122,6 +126,13 @@ class ChatService:
                             ):
                                 # Update thread from response
                                 thread = response.thread
+                                
+                                # Debug logging for response structure
+                                logger.debug(f"Response type: {type(response)}, has thread: {hasattr(response, 'thread')}")
+                                if hasattr(response, 'thread') and response.thread:
+                                    logger.debug(f"Thread type: {type(response.thread)}, has messages: {hasattr(response.thread, 'messages')}")
+                                    if hasattr(response.thread, 'messages'):
+                                        logger.debug(f"Thread has {len(response.thread.messages)} messages")
                                 
                                 # Extract content from response
                                 if hasattr(response, 'content'):
@@ -150,6 +161,11 @@ class ChatService:
                             if function_stream:
                                 logger.info(f"Main content stream complete, closing function stream for session {session_id}")
                                 function_stream.close()
+                            
+                            # Close the function stream when content stream is done
+                            if function_stream:
+                                logger.info(f"Main content stream complete, closing function stream for session {session_id}")
+                                function_stream.close()
                     
                     # Define a task to process function call events
                     async def process_function_calls():
@@ -159,12 +175,14 @@ class ChatService:
                             return
                         
                         try:
-                            # Process events from function stream
+                            # Process events from function stream with immediate yielding
                             async for event in function_stream.get_events():
                                 await merged_queue.put({
                                     "type": "function_call",
                                     "content": event
                                 })
+                                # Force immediate processing by yielding control
+                                await asyncio.sleep(0)
                         except Exception as e:
                             logger.error(f"Error processing function calls: {str(e)}", exc_info=True)
                         finally:
@@ -185,8 +203,11 @@ class ChatService:
                             # One of the streams is done
                             active_streams -= 1
                         else:
-                            # Yield the item from the queue
+                            # Yield the item from the queue immediately
                             yield item["content"]
+                            # For function calls, add a minimal delay to ensure immediate processing
+                            if item.get("type") == "function_call":
+                                await asyncio.sleep(0)
                     
                     # Wait for both tasks to complete
                     await asyncio.gather(content_task, function_task)
@@ -278,19 +299,7 @@ class ChatService:
                         image_attachments_processed += 1
                         
                         logger.info(f"Added image as ImageContent: {attachment.name}")
-                        # Send completion status to function stream if available
-                        if function_stream:
-                            end_time = asyncio.get_event_loop().time()
-                            function_stream.add_function_call({
-                                "type": "function_end",
-                                "plugin": "FileProcessor",
-                                "function": f"process_file_{idx+1}",
-                                "status": "success",
-                                "result": f"✅ Image processed: {attachment.name}",
-                                "is_auto": "Manual",
-                                "timestamp": end_time,
-                                "start_timestamp": start_time
-                            })
+                        # Function call status is handled by the overall completion message
                             
                     except Exception as img_error:
                         logger.error(f"Error creating ImageContent for {attachment.name}: {str(img_error)}")
@@ -303,19 +312,7 @@ class ChatService:
                     document_attachments_processed += 1
                     
                     logger.info(f"Added document as text: {attachment.name}")
-                    # Send completion status to function stream if available
-                    if function_stream:
-                        end_time = asyncio.get_event_loop().time()
-                        function_stream.add_function_call({
-                            "type": "function_end",
-                            "plugin": "FileProcessor",
-                            "function": f"process_file_{idx+1}",
-                            "status": "success",
-                            "result": f"✅ Document processed: {attachment.name}",
-                            "is_auto": "Manual",
-                            "timestamp": end_time,
-                            "start_timestamp": start_time
-                        })
+                    # Function call status is handled by the overall completion message
                 
                 elif metadata["type"] == "error":
                     # Add error information to text
@@ -357,3 +354,5 @@ class ChatService:
     def _format_openapi_error(self, error: OpenAPIPluginError) -> str:
         """Format OpenAPI plugin error into a user-friendly message."""
         return f"Error with OpenAPI plugin '{error.tool_name}' (ID: {error.tool_id}): {error.message}"
+
+

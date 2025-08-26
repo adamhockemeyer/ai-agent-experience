@@ -70,6 +70,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -151,15 +152,30 @@
 
 /* Code block styling improvements */
 .markdown-content pre {
-  @apply bg-slate-800 dark:bg-slate-900 p-3 rounded-md overflow-x-auto my-4;
+  @apply bg-gray-100 dark:bg-gray-800 p-3 rounded-md overflow-x-auto my-4;
 }
 
 .markdown-content code {
   @apply font-mono text-sm;
 }
 
+/* Override Tailwind prose CSS variables that cause dark backgrounds */
+.prose {
+  --tw-prose-pre-bg: rgb(243 244 246) !important;
+  /* gray-100 */
+  --tw-prose-pre-code: rgb(17 24 39) !important;
+  /* gray-900 for text */
+}
+
+.dark .prose {
+  --tw-prose-pre-bg: rgb(31 41 55) !important;
+  /* gray-800 */
+  --tw-prose-pre-code: rgb(243 244 246) !important;
+  /* gray-100 for text */
+}
+
 /* Inline code styling */
-.markdown-content :not(pre) > code {
+.markdown-content :not(pre)>code {
   @apply bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded text-sm text-slate-900 dark:text-slate-200;
 }
 

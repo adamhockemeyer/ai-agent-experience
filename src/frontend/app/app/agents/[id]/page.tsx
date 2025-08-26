@@ -1,5 +1,5 @@
 import { getAgent } from "@/app/actions/agent-actions"
-import ChatInterface from "@/components/chat/chat-interface"
+import AiSdkChatInterfaceOptimized from '@/components/chat/ai-sdk-chat-interface-optimized'
 import { notFound } from "next/navigation"
 import { Bot, Code, FileText, Settings, Zap, Cpu, Workflow } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -35,7 +35,7 @@ export default async function AgentPage({ params }: {
         <div className="max-w-screen-xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary/40">
                 {agent.tools && agent.tools.some((tool) => tool.type === "Agent") ? (
                   <Workflow className="h-6 w-6" />
                 ) : (
@@ -92,7 +92,7 @@ export default async function AgentPage({ params }: {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <ChatInterface agent={agent} />
+        <AiSdkChatInterfaceOptimized agent={agent} />
       </div>
     </div>
   )

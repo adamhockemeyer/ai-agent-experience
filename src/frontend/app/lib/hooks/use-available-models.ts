@@ -11,6 +11,7 @@ export function useAvailableModels(
   websiteConfig: WebsiteConfig | null,
   agentType: string,
   provider: string,
+  currentModel: string,
   setFormValue: (field: string, value: any) => void,
 ) {
   const [availableModels, setAvailableModels] = useState<ModelMapping[]>([])
@@ -35,7 +36,7 @@ export function useAvailableModels(
     const uniqueProviders = [...new Set(availableProviders)]
 
     // Check if current provider has models for this agent type
-    const currentProviderHasModels = availableProviders.includes(provider)
+    const currentProviderHasModels = availableProviders.includes(provider as "AzureAIInference" | "AzureOpenAI")
 
     // If current provider doesn't have models but other providers do, switch to the first available provider
     let providerToUse = provider
@@ -58,20 +59,20 @@ export function useAvailableModels(
       toast({
         title: "No models available",
         description: `No models are configured for ${agentType}. Please add models in settings.`,
-        variant: "warning",
+        variant: "destructive",
       })
     }
 
     // If the current model is not in the filtered list, select the first available model
     if (filteredModels.length > 0 && !hasUpdatedModel.current) {
-      const modelExists = filteredModels.some((model) => model.model === provider)
+      const modelExists = filteredModels.some((model) => model.model === currentModel)
 
       if (!modelExists) {
         setFormValue("modelSelection.model", filteredModels[0].model)
         hasUpdatedModel.current = true
       }
     }
-  }, [agentType, provider, websiteConfig, setFormValue, toast])
+  }, [agentType, provider, currentModel, websiteConfig, setFormValue, toast])
 
   return { availableModels }
 }

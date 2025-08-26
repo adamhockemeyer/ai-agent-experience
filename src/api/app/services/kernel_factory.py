@@ -91,7 +91,57 @@ class KernelFactory:
                         # Execute the function
                         try:
                             await next(context)
+                            
+                            # Analyze the result to determine if it's actually an error
                             status = "success"
+                            if hasattr(context, 'result') and context.result is not None:
+                                # Try multiple ways to extract the result content
+                                result_value = ""
+                                if hasattr(context.result, 'value'):
+                                    result_value = str(context.result.value)
+                                elif hasattr(context.result, 'content'):
+                                    result_value = str(context.result.content)
+                                else:
+                                    result_value = str(context.result)
+                                
+                                # Also check if result has items (for complex results)
+                                if hasattr(context.result, 'items') and context.result.items:
+                                    for item in context.result.items:
+                                        if hasattr(item, 'text'):
+                                            result_value += " " + str(item.text)
+                                        elif hasattr(item, 'content'):
+                                            result_value += " " + str(item.content)
+                                
+                                # Log the result content for debugging
+                                logger.debug(f"Function {plugin_name}.{function_name} result content: {result_value[:300]}...")
+                                
+                                # Check for common error patterns in the result
+                                error_patterns = [
+                                    "failed",
+                                    "error",
+                                    "exception",
+                                    "not found",
+                                    "timeout",
+                                    "unauthorized",
+                                    "forbidden",
+                                    "bad request",
+                                    "internal error",
+                                    "capacity not active",
+                                    "capacitynotactive",  # Added for your specific error
+                                    "connection failed",
+                                    "invalid",
+                                    "unable to",
+                                    "graphql request failed",  # Added for GraphQL errors
+                                    "failed to introspect",   # Added for schema introspection errors
+                                    '"errorCode"',            # Added for JSON error responses
+                                    '"message":'              # Added for structured error messages
+                                ]
+                                
+                                result_lower = result_value.lower()
+                                if any(pattern in result_lower for pattern in error_patterns):
+                                    status = "error"
+                                    logger.warning(f"Function {plugin_name}.{function_name} returned error result: {result_value[:200]}...")
+                            
                         except Exception as e:
                             status = "error"
                             logger.error(f"Error in function {plugin_name}.{function_name}: {str(e)}")

@@ -107,37 +107,94 @@ class FileProcessor:
             }
         
         try:
+            # Log initial attachment data for debugging
+            logger.info(f"Processing document {attachment.name}")
+            logger.info(f"Attachment type: {attachment.type}")
+            logger.info(f"URL starts with 'data:': {attachment.url.startswith('data:')}")
+            logger.info(f"URL contains ';base64,': {';base64,' in attachment.url}")
+            
+            # Log first 100 characters of URL for debugging (but not the full data)
+            url_preview = attachment.url[:100] + "..." if len(attachment.url) > 100 else attachment.url
+            logger.info(f"URL preview: {url_preview}")
+            
             # Decode base64 data
             if attachment.url.startswith('data:') and ';base64,' in attachment.url:
+                logger.info("Extracting base64 data from data URL")
                 base64_data = attachment.url.split(';base64,', 1)[1]
+                logger.info(f"Base64 data length after extraction: {len(base64_data)}")
             else:
+                logger.info("Using URL as raw base64 data")
                 base64_data = attachment.url
+                logger.info(f"Raw base64 data length: {len(base64_data)}")
             
-            file_data = base64.b64decode(base64_data)
+            # Log first few characters of base64 data
+            base64_preview = base64_data[:50] + "..." if len(base64_data) > 50 else base64_data
+            logger.info(f"Base64 data preview: {base64_preview}")
+            
+            try:
+                file_data = base64.b64decode(base64_data)
+                logger.info(f"Successfully decoded base64. File data length: {len(file_data)} bytes")
+                
+                # Log first few bytes as hex for debugging
+                hex_preview = file_data[:20].hex() if len(file_data) >= 20 else file_data.hex()
+                logger.info(f"File data hex preview: {hex_preview}")
+                
+                # Try to identify file type from the first few bytes
+                if file_data.startswith(b'{'):
+                    logger.info("File appears to start with '{' - likely JSON")
+                elif file_data.startswith(b'PK'):
+                    logger.info("File appears to start with 'PK' - likely ZIP/Office document")
+                elif file_data.startswith(b'%PDF'):
+                    logger.info("File appears to start with '%PDF' - likely PDF")
+                else:
+                    logger.info(f"File starts with: {file_data[:10]}")
+                    
+            except Exception as decode_error:
+                logger.error(f"Failed to decode base64 data: {decode_error}")
+                return f"[Error: Invalid base64 data for {attachment.name}]", {
+                    "type": "error",
+                    "file_name": attachment.name,
+                    "mime_type": attachment.type,
+                    "error_message": f"Base64 decode error: {str(decode_error)}"
+                }
             
             # Try using BytesIO first (more efficient, no temp files)
             try:
+                logger.info("Attempting to process with BytesIO")
                 file_stream = io.BytesIO(file_data)
                 file_stream.name = attachment.name  # Some converters need a filename
+                logger.info(f"Created BytesIO stream with name: {file_stream.name}")
+                
                 result = self.markitdown.convert(file_stream)
                 markdown_content = result.text_content if hasattr(result, 'text_content') else str(result)
-                logger.debug(f"Successfully processed {attachment.name} using BytesIO")
+                logger.info(f"Successfully processed {attachment.name} using BytesIO")
+                logger.info(f"Markdown content length: {len(markdown_content)}")
+                
             except Exception as stream_error:
-                logger.debug(f"BytesIO approach failed for {attachment.name}, falling back to temp file: {stream_error}")
+                logger.warning(f"BytesIO approach failed for {attachment.name}: {stream_error}")
+                logger.info("Falling back to temporary file approach")
                 
                 # Fallback to temporary file approach
                 with tempfile.NamedTemporaryFile(delete=False, suffix=self._get_file_extension(attachment.name)) as temp_file:
+                    logger.info(f"Created temporary file: {temp_file.name}")
                     temp_file.write(file_data)
                     temp_file_path = temp_file.name
+                    logger.info(f"Wrote {len(file_data)} bytes to temporary file")
                 
                 try:
+                    logger.info(f"Attempting to convert temporary file: {temp_file_path}")
                     result = self.markitdown.convert(temp_file_path)
                     markdown_content = result.text_content if hasattr(result, 'text_content') else str(result)
-                    logger.debug(f"Successfully processed {attachment.name} using temporary file")
+                    logger.info(f"Successfully processed {attachment.name} using temporary file")
+                    logger.info(f"Markdown content length: {len(markdown_content)}")
+                except Exception as temp_error:
+                    logger.error(f"Temporary file approach also failed: {temp_error}")
+                    raise temp_error
                 finally:
                     # Clean up temporary file
                     try:
                         os.unlink(temp_file_path)
+                        logger.info(f"Cleaned up temporary file: {temp_file_path}")
                     except Exception as cleanup_error:
                         logger.warning(f"Could not clean up temp file {temp_file_path}: {cleanup_error}")
             
@@ -147,6 +204,7 @@ class FileProcessor:
                 file_header += f"**File Type:** {attachment.type}\n\n"
             
             full_content = file_header + markdown_content
+            logger.info(f"Generated full content for {attachment.name}, total length: {len(full_content)}")
             
             return full_content, {
                 "type": "document",
@@ -157,6 +215,9 @@ class FileProcessor:
         
         except Exception as e:
             logger.error(f"Error processing document {attachment.name}: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return f"[Error processing file '{attachment.name}': {str(e)}]", {
                 "type": "error",
                 "file_name": attachment.name,

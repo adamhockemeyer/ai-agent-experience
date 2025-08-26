@@ -35,6 +35,10 @@ async def chat(
         span_context = current_span.get_span_context()
         trace_id = format_trace_id(span_context.trace_id)
         
+        # Debug logging for trace ID
+        logger.info(f"Chat endpoint - Generated trace ID: {trace_id}")
+        logger.info(f"Chat endpoint - Span context valid: {span_context.is_valid}")
+        
         # Fetch the agent configuration using agent_id
         try:
             agent = await agent_config.get(key=request.agent_id, model_type=Agent, prefix="agent:")     
@@ -68,6 +72,9 @@ async def chat(
                 span.set_attribute("error", str(e))
                 # Send error message as an event
                 yield f"An unexpected error occurred: {str(e)}"
+        
+        # Log the trace ID being sent in headers
+        logger.info(f"Chat endpoint - Returning response with trace ID header: {trace_id}")
         
         return StreamingResponse(
             stream_response(),

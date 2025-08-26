@@ -50,7 +50,7 @@ interface AgentFormProps {
 }
 
 export default function AgentForm({ agent, isEditing = false }: AgentFormProps) {
-  
+
   const router = useRouter()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -100,6 +100,7 @@ export default function AgentForm({ agent, isEditing = false }: AgentFormProps) 
   const watchFileUpload = form.watch("fileUpload")
   const watchAgentType = form.watch("agentType")
   const watchProvider = form.watch("modelSelection.provider")
+  const watchModel = form.watch("modelSelection.model")
 
   // Memoize the setFormValue function to prevent unnecessary re-renders
   const setFormValue = React.useCallback(
@@ -109,8 +110,8 @@ export default function AgentForm({ agent, isEditing = false }: AgentFormProps) 
     [form],
   )
 
-  // Get available models based on agent type and provider
-  const { availableModels } = useAvailableModels(websiteConfig, watchAgentType, watchProvider, setFormValue)
+  // Get available models based on agent type, provider, and current model
+  const { availableModels } = useAvailableModels(websiteConfig, watchAgentType, watchProvider, watchModel, setFormValue)
 
   // Ensure all tools have authentications array on initial load
   useEffect(() => {
@@ -119,12 +120,12 @@ export default function AgentForm({ agent, isEditing = false }: AgentFormProps) 
 
     let needsUpdate = false
     const updatedTools = tools.map((tool) => {
-      // Convert old authentication object to authentications array if needed
+      // Ensure all tools have authentications array
       if (!tool.authentications) {
         needsUpdate = true
         return {
           ...tool,
-          authentications: tool.authentication ? [tool.authentication] : [{ type: "Anonymous" }],
+          authentications: [{ type: "Anonymous" as const }],
         }
       }
       return tool
@@ -242,7 +243,7 @@ export default function AgentForm({ agent, isEditing = false }: AgentFormProps) 
   // Handle viewing OpenAPI spec
   const handleViewSpec = (index: number, format: "json" | "yaml") => {
     const tool = form.getValues(`tools.${index}`)
-    const specData = tool.specData || {}
+    const specData = (tool as any).specData || {}
     const specUrl = tool.specUrl || ""
     const specTitle = tool.name || "OpenAPI Specification"
 
