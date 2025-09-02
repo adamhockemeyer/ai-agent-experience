@@ -60,7 +60,7 @@ var policy1 = '''
       <backend>
         <!--Set count to one less than the number of backends in the pool to try all backends until the backend pool is temporarily unavailable.-->
         <retry count="2" interval="0" first-fast-retry="true" condition="@(context.Response.StatusCode == 429 || (context.Response.StatusCode == 503 && !context.Response.StatusReason.Contains("Backend pool") && !context.Response.StatusReason.Contains("is temporarily unavailable")))">
-            <forward-request buffer-request-body="true" />
+            <forward-request timeout="120" fail-on-error-status-code="true" buffer-response="false"/>
         </retry>
       </backend>
       <outbound>

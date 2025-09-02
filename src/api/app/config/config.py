@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # MCP plugin configuration
     mcp_enable_plugins: bool = True
-    mcp_timeout_seconds: int = 30
+    mcp_timeout_seconds: int = 60
     mcp_max_retries: int = 2
     mcp_npm_registry: str = ""  # Optional custom npm registry
     

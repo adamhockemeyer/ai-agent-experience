@@ -24,11 +24,11 @@ var defaultDeployments = [
       capacity: 400
     }
   }
-  // text embendded only works with standard deployment sku at the moment
+  // text embedding model - using text-embedding-3-small for better performance
   {
-    name: 'text-embedding-large'
+    name: 'text-embedding-3-small'
     model: {
-      name: 'text-embedding-3-large'
+      name: 'text-embedding-3-small'
       version: '1'
     }
     sku: {

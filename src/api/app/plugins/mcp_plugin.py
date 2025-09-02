@@ -5,6 +5,7 @@ import os
 import platform
 import shutil
 import subprocess
+import time
 from typing import Dict, Any, Optional, List
 from opentelemetry import trace
 
@@ -32,6 +33,9 @@ class MCPPluginHandler(PluginBase):
             if agent_id:
                 span.set_attribute("agent_id", agent_id)
             
+            overall_start = time.time()
+            logger.info(f"Starting MCP plugin initialization for '{tool.name}' (tool: {tool.id}){' in agent: ' + agent_id if agent_id else ''}")
+            
             # Check if MCP plugins are enabled in settings
             if not self.settings.mcp_enable_plugins:
                 logger.info("MCP plugins are disabled in settings")
@@ -42,10 +46,17 @@ class MCPPluginHandler(PluginBase):
                 return None
                 
             try:                # Parse MCP definition
+                parse_start = time.time()
                 if isinstance(tool.mcpDefinition, str):
                     config = json.loads(tool.mcpDefinition)
                 else:
                     config = tool.mcpDefinition
+                parse_time = time.time() - parse_start
+                logger.debug(f"MCP config parsing took {parse_time:.3f}s")
+                
+                plugin = None
+                plugin_name = None
+                creation_start = time.time()
                 
                 # Handle the standard mcpServers format used in agent tools
                 if "mcpServers" in config:
@@ -62,13 +73,15 @@ class MCPPluginHandler(PluginBase):
                     # Check if this is a SSE MCP server
                     if server_config.get("type") == "sse":
                         plugin = self._create_remote_mcp_plugin(server_config, plugin_name, description)
-                        logger.info(f"Creating SSE MCP plugin for '{plugin_name}'")
+                        creation_time = time.time() - creation_start
+                        logger.info(f"SSE MCP plugin '{plugin_name}' creation took {creation_time:.3f}s")
                     else:
                         # Default to local MCP plugin
                         command = server_config.get("command")
                         args = server_config.get("args", []) 
                         plugin = self._create_local_mcp_plugin(command, args, plugin_name, description, env_vars)
-                        logger.info(f"Creating local MCP plugin for '{plugin_name}' with command: {command} {' '.join(args)}")                
+                        creation_time = time.time() - creation_start
+                        logger.info(f"Local MCP plugin '{plugin_name}' creation took {creation_time:.3f}s")
                 else:
                     # Fallback to direct config access
                     plugin_name = tool.name
@@ -79,17 +92,38 @@ class MCPPluginHandler(PluginBase):
                       # Process direct config (should be indented inside the else block)
                     if config.get("type") == "sse":
                         plugin = self._create_remote_mcp_plugin(config, plugin_name, description)
-                        logger.info(f"Creating SSE MCP plugin for '{plugin_name}'")
+                        creation_time = time.time() - creation_start
+                        logger.info(f"SSE MCP plugin '{plugin_name}' creation took {creation_time:.3f}s")
                     else:
                         command = config.get("command")
                         args = config.get("args", [])
                         plugin = self._create_local_mcp_plugin(command, args, plugin_name, description, env_vars)
-                        logger.info(f"Creating local MCP plugin for '{plugin_name}' with command: {command} {' '.join(args)}")
+                        creation_time = time.time() - creation_start
+                        logger.info(f"Local MCP plugin '{plugin_name}' creation took {creation_time:.3f}s")
+                
+                total_creation_time = time.time() - creation_start
+                logger.info(f"Creating MCP plugin for '{plugin_name}' took {total_creation_time:.3f}s")
                 
                 # Connect to the MCP server
                 logger.info(f"Connecting to MCP server for tool: {tool.id}{' in agent: ' + agent_id if agent_id else ''}")
+                
+                connect_start = time.time()
                 await plugin.connect()
-                logger.info(f"Successfully connected to MCP server for tool: {tool.id}{' in agent: ' + agent_id if agent_id else ''}")
+                connect_time = time.time() - connect_start
+                
+                logger.info(f"Successfully connected to MCP server for tool: {tool.id}{' in agent: ' + agent_id if agent_id else ''} in {connect_time:.3f}s")
+                
+                # Log total initialization time
+                total_time = time.time() - overall_start
+                logger.info(f"Total MCP plugin initialization for '{plugin_name}' took {total_time:.3f}s (parse: {parse_time:.3f}s, creation: {total_creation_time:.3f}s, connection: {connect_time:.3f}s)")
+                
+                # Add telemetry attributes
+                span.set_attribute("parse_time_seconds", parse_time)
+                span.set_attribute("creation_time_seconds", total_creation_time)
+                span.set_attribute("connection_time_seconds", connect_time)
+                span.set_attribute("total_time_seconds", total_time)
+                span.set_attribute("success", True)
+                span.set_attribute("plugin_name", plugin_name)
                 
                 # Store for cleanup with compound key
                 plugin_key = f"{agent_id}:{tool.id}" if agent_id else tool.id
@@ -98,13 +132,18 @@ class MCPPluginHandler(PluginBase):
                 return plugin
                 
             except Exception as e:
-                logger.error(f"Failed to initialize MCP plugin for tool {tool.id}: {str(e)}", exc_info=True)
+                error_time = time.time() - overall_start
+                logger.error(f"Failed to initialize MCP plugin for tool {tool.id} after {error_time:.3f}s: {str(e)}", exc_info=True)
                 span.record_exception(e)
+                span.set_attribute("success", False)
+                span.set_attribute("error_time_seconds", error_time)
                 return None
     
     def _create_local_mcp_plugin(self, command: str, args: List[str], 
                                  name: str, description: str, env: Optional[Dict[str, str]] = None) -> MCPStdioPlugin:
         """Create a local MCP plugin that runs on the server."""
+        start_time = time.time()
+        
         if not command:
             raise ValueError(f"Missing command for MCP plugin: {name}")
         
@@ -121,7 +160,7 @@ class MCPPluginHandler(PluginBase):
             logger.debug(f"Environment variables for '{name}': {env}")
         
         # Create the plugin instance with longer timeouts
-        return MCPStdioPlugin(
+        plugin = MCPStdioPlugin(
             name=name,
             description=description,
             command=command,
@@ -129,10 +168,16 @@ class MCPPluginHandler(PluginBase):
             env=env,
             connection_timeout=self.settings.mcp_timeout_seconds
         )
+        
+        creation_time = time.time() - start_time
+        logger.info(f"Local MCP plugin '{name}' creation took {creation_time:.3f}s")
+        return plugin
     
     def _create_remote_mcp_plugin(self, config: Dict[str, Any], 
                                  name: str, description: str) -> MCPSsePlugin:
         """Create a remote MCP plugin that connects to a remote endpoint."""
+        start_time = time.time()
+        
         url = config.get("url") or config.get("endpoint")
         if not url:
             raise ValueError(f"Missing url/endpoint for SSE MCP plugin: {name}")
@@ -155,14 +200,20 @@ class MCPPluginHandler(PluginBase):
             elif "headers" in auth_config:
                 headers.update(auth_config["headers"])
         
-        # Create the SSE MCP plugin
-        return MCPSsePlugin(
+        # Create the SSE MCP plugin with performance optimizations
+        plugin = MCPSsePlugin(
             name=name,
             url=url,
             description=description,
             headers=headers,
-            timeout=self.settings.mcp_timeout_seconds
+            # timeout=30.0,  # Shorter connection timeout for SSE
+            # sse_read_timeout=30.0,  # SSE-specific read timeout
+            # request_timeout=self.settings.mcp_timeout_seconds // 2
         )
+
+        creation_time = time.time() - start_time
+        logger.info(f"SSE MCP plugin '{name}' creation took {creation_time:.3f}s")
+        return plugin
     
     def _find_npx_path(self) -> Optional[str]:
         """Find npx executable path on the system."""
@@ -194,6 +245,7 @@ class MCPPluginHandler(PluginBase):
         if not plugin:
             return
             
+        cleanup_start = time.time()
         try:
             # Find and remove from tracking using value lookup
             plugin_key = None
@@ -210,10 +262,22 @@ class MCPPluginHandler(PluginBase):
                     agent_info = f" for agent {agent_id}"
                     del self._plugins[plugin_key]
                 
+                logger.info(f"Starting MCP plugin cleanup{agent_info}")
+                
                 # Clean up plugin resources
+                close_start = time.time()
                 if hasattr(plugin, 'close'):
                     await plugin.close()
-                    logger.info(f"Cleaned up MCP plugin{agent_info}")
+                    close_time = time.time() - close_start
+                    total_time = time.time() - cleanup_start
+                    logger.info(f"Cleaned up MCP plugin{agent_info} (close: {close_time:.3f}s, total: {total_time:.3f}s)")
+                else:
+                    total_time = time.time() - cleanup_start
+                    logger.info(f"Cleaned up MCP plugin{agent_info} (no close method, total: {total_time:.3f}s)")
+            else:
+                total_time = time.time() - cleanup_start
+                logger.debug(f"MCP plugin not found in tracking for cleanup (total: {total_time:.3f}s)")
             
         except Exception as e:
-            logger.error(f"Error cleaning up MCP plugin: {str(e)}", exc_info=True)
+            error_time = time.time() - cleanup_start
+            logger.error(f"Error cleaning up MCP plugin after {error_time:.3f}s: {str(e)}", exc_info=True)

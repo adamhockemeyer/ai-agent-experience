@@ -50,9 +50,9 @@
           }
         },
         {
-          "name": "text-embedding-large",
+          "name": "text-embedding-3-small",
           "model": {
-            "name": "text-embedding-3-large",
+            "name": "text-embedding-3-small",
             "version": "1"
           },
           "sku": {

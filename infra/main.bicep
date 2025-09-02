@@ -349,15 +349,6 @@ module weatherAgentConfig 'app-configuration/agent_weather_agent_config.bicep' =
   }
 }
 
-// module playwrightAgentConfig 'app-configuration/agent_playwright_agent_config.bicep' = {
-//   name: '${prefix}-playwright-agent-config'
-//   params: {
-//     appConfigName: appConfig.outputs.name
-//     location: location
-//     identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
-//   }
-// }
-
 module sapAgentConfig 'app-configuration/agent_sap_agent_config.bicep' = {
   name: '${prefix}-sap-agent-config'
   params: {

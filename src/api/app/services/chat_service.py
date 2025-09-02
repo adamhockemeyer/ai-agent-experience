@@ -68,7 +68,7 @@ class ChatService:
                         span.set_attribute("error.tool_name", ope.tool_name)
                         yield error_message
                         return
-                    
+                
                     # Check for existing thread first to make decisions about agent creation
                     thread_id = None
                     if existing_thread and hasattr(existing_thread, 'thread_type') and existing_thread.thread_type == "AzureAIAgentThread":
@@ -101,7 +101,7 @@ class ChatService:
                             thread = existing_thread
                         else:
                             logger.warning(f"Existing thread type {type(existing_thread)} not compatible with {type(thread)}, using new thread")
-                    
+                
                     # Create a queue for merging content and function call events
                     merged_queue = asyncio.Queue()
                     
@@ -166,7 +166,7 @@ class ChatService:
                             if function_stream:
                                 logger.info(f"Main content stream complete, closing function stream for session {session_id}")
                                 function_stream.close()
-                    
+                
                     # Define a task to process function call events
                     async def process_function_calls():
                         if not function_stream:

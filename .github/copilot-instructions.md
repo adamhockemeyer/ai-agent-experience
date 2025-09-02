@@ -30,3 +30,5 @@ This is code and Azure resources to quickly deploy a working demo environment in
 - @azure Rule - Use Azure Best Practices: When generating code for Azure, running terminal commands for Azure, or performing operations related to Azure, invoke your `azure_development-get_best_practices` tool if available.
 
 - Azure Role Based Access Control - Refer to [Built In Roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles) to reference id's for various Azure RBAC roles when needing to assign permissions
+
+- For Python based projects, ensure you activate the virtual environment before running any commands.

@@ -12,7 +12,7 @@ azure-ai-textanalytics
 openai
 
 # Document processing and chunking
-markitdown[all]
+markitdown[pdf,docx,xlsx,pptx,az-doc-intel]  # Document support without audio/video dependencies
 langchain-text-splitters
 tiktoken
 

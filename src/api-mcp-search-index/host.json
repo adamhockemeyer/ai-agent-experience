@@ -9,8 +9,15 @@
     }
   },
   "extensionBundle": {
-    "id": "Microsoft.Azure.Functions.ExtensionBundle.Experimental",
+    "id": "Microsoft.Azure.Functions.ExtensionBundle.Preview",
     "version": "[4.*, 5.0.0)"
+  },
+  "extensions": {
+    "mcp": {
+      "instructions": "Search for information about documents",
+      "serverName": "API MCP Document Processing",
+      "serverVersion": "1.0.0"
+    }
   },
   "functionTimeout": "00:10:00",
   "healthMonitor": {
@@ -19,11 +26,5 @@
     "healthCheckWindow": "00:02:00",
     "healthCheckThreshold": 6,
     "counterThreshold": 0.80
-  },
-  "retry": {
-    "strategy": "exponentialBackoff",
-    "maxRetryCount": 3,
-    "minimumInterval": "00:00:01",
-    "maximumInterval": "00:01:00"
   }
 }

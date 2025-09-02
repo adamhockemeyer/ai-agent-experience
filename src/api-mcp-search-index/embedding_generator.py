@@ -63,6 +63,7 @@ class EmbeddingGenerator:
             response = self.openai_client.embeddings.create(
                 input=text,
                 model=settings.AZURE_OPENAI_EMBEDDING_MODEL
+                # text-embedding-3-small natively outputs 1536 dimensions
             )
             return response.data[0].embedding
         except Exception as e:
@@ -87,6 +88,7 @@ class EmbeddingGenerator:
                 response = self.openai_client.embeddings.create(
                     input=batch,
                     model=settings.AZURE_OPENAI_EMBEDDING_MODEL
+                    # text-embedding-3-small natively outputs 1536 dimensions
                 )
                 
                 batch_embeddings = [data.embedding for data in response.data]
