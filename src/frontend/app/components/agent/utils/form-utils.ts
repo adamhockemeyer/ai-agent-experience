@@ -73,6 +73,49 @@ export const agentFormSchema = z.object({
     }),
   ),
   requireJsonResponse: z.boolean(),
+  jsonResponseSchema: z.string().optional().refine((value) => {
+    if (!value || value.trim() === "") {
+      return true; // Empty is allowed
+    }
+
+    try {
+      const parsed = JSON.parse(value);
+
+      // Basic validation for structured outputs requirements
+      if (typeof parsed !== 'object' || parsed === null) {
+        return false;
+      }
+
+      if (parsed.type !== 'object') {
+        return false;
+      }
+
+      if (!parsed.properties || typeof parsed.properties !== 'object') {
+        return false;
+      }
+
+      if (!parsed.required || !Array.isArray(parsed.required)) {
+        return false;
+      }
+
+      if (parsed.additionalProperties !== false) {
+        return false;
+      }
+
+      // Check that all properties are in required array
+      const propertyNames = Object.keys(parsed.properties);
+      const missingRequired = propertyNames.filter(prop => !parsed.required.includes(prop));
+      if (missingRequired.length > 0) {
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }, {
+    message: "JSON schema must be valid and comply with structured outputs requirements"
+  }),
   displayFunctionCallStatus: z.boolean(),
   // Chat history reduction settings
   enableHistoryReduction: z.boolean(),

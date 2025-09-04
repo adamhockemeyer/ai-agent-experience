@@ -45,6 +45,7 @@ class Agent(BaseModel):
     maxTurns: int
     tools: List[Tool]
     requireJsonResponse: bool
+    jsonResponseSchema: Optional[str] = Field(None, description="JSON schema for structured response output when requireJsonResponse is enabled")
     displayFunctionCallStatus: bool = Field(False, description="Whether to display function call status in the response stream")
     # Chat history reduction settings
     enableHistoryReduction: bool = Field(False, description="Whether to enable chat history reduction")

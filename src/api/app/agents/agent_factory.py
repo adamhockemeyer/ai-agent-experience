@@ -1,9 +1,11 @@
 # app/agents/agent_factory.py
 import logging
+import json
 from typing import Tuple, List, Any, Optional
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai import FunctionChoiceBehavior
 from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecutionSettings
+from semantic_kernel.connectors.ai.open_ai import OpenAIPromptExecutionSettings
 from semantic_kernel.agents import ChatCompletionAgent, ChatHistoryAgentThread, AzureAIAgent, AzureAIAgentThread
 from semantic_kernel.contents import ChatHistorySummarizationReducer
 from semantic_kernel.functions import KernelArguments
@@ -63,6 +65,38 @@ class AgentFactory:
                     # Add service to kernel for other potential users
                     kernel.add_service(service)
             
+            # Configure execution settings for structured outputs if enabled
+            if agent_config.requireJsonResponse and agent_config.jsonResponseSchema:
+                # Parse and validate the JSON schema
+                try:
+                    schema_dict = json.loads(agent_config.jsonResponseSchema)
+                    # Create OpenAI-specific execution settings with response format
+                    kernel_settings = OpenAIPromptExecutionSettings(
+                        function_choice_behavior=FunctionChoiceBehavior.Auto(),
+                        response_format={
+                            "type": "json_schema",
+                            "json_schema": {
+                                "name": "structured_response",
+                                "strict": True,
+                                "schema": schema_dict
+                            }
+                        }
+                    )
+                    logger.info(f"Configured structured outputs for agent {agent_config.id}")
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Invalid JSON schema for agent {agent_config.id}: {str(e)}. Using default settings.")
+                    # Fall back to default settings if schema is invalid
+                    kernel_settings = PromptExecutionSettings(
+                        function_choice_behavior=FunctionChoiceBehavior.Auto()
+                    )
+            elif agent_config.requireJsonResponse:
+                # Use basic JSON mode if no schema is provided
+                kernel_settings = OpenAIPromptExecutionSettings(
+                    function_choice_behavior=FunctionChoiceBehavior.Auto(),
+                    response_format={"type": "json_object"}
+                )
+                logger.info(f"Configured basic JSON mode for agent {agent_config.id}")
+
             # Create agent with the plugins, passing service directly if available
             if service:
                 chat_agent = ChatCompletionAgent(

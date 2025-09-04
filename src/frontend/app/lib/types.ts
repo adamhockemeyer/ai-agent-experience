@@ -15,6 +15,7 @@ export interface Agent {
   maxTurns: number
   tools: Tool[]
   requireJsonResponse: boolean
+  jsonResponseSchema?: string
   displayFunctionCallStatus: boolean // Add this new field
   enableHistoryReduction?: boolean // Chat history reduction settings
   reducerMsgCount?: number

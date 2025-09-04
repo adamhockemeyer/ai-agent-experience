@@ -79,6 +79,7 @@ export default function AgentForm({ agent, isEditing = false }: AgentFormProps) 
       enableHistoryReduction: agent.enableHistoryReduction ?? false,
       reducerMsgCount: agent.reducerMsgCount ?? 10,
       reducerThreshold: agent.reducerThreshold ?? 10,
+      jsonResponseSchema: agent.jsonResponseSchema ?? undefined,
     } : {
       name: "",
       description: "",
@@ -95,6 +96,7 @@ export default function AgentForm({ agent, isEditing = false }: AgentFormProps) 
       maxTurns: 10,
       tools: [],
       requireJsonResponse: false,
+      jsonResponseSchema: undefined,
       displayFunctionCallStatus: false,
       enableHistoryReduction: false,
       reducerMsgCount: 10,
