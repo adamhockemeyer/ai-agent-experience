@@ -589,21 +589,6 @@ resource mcpFunctionAppContributorRoleAssignmentUAMI 'Microsoft.Authorization/ro
   }
 }
 
-// Create a nested deployment to handle Event Grid system topic creation conditionally
-// module eventGridModule 'event-grid-simple.bicep' = {
-//   name: '${prefix}-event-grid-simple'
-//   params: {
-//     prefix: prefix
-//     location: location
-//     storageAccountId: storageAccount.outputs.id
-//     mcpSearchIndexFunctionAppResourceId: mcpSearchIndexFunctionApp.outputs.resourceId
-//     userAssignedManagedIdentityId: userAssignedManagedIdentity.id
-//   }
-//   dependsOn: [
-//     eventGridRoleAssignmentUAMI
-//   ]
-// }
-
 module keyVault 'keyvault/keyvault.bicep' = {
   name: '${prefix}-kv'
   params: {

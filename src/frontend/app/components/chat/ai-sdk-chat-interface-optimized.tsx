@@ -460,14 +460,14 @@ export default function AiSdkChatInterfaceOptimized({ agent }: AiSdkChatInterfac
                                     <span className="text-blue-600 text-xl">⚡</span>
                                 </div>
                                 <h3 className="font-medium mb-1">Powered by</h3>
-                                <p className="text-sm text-muted-foreground">AzureOpenAI: gpt-4.1</p>
+                                <p className="text-sm text-muted-foreground">{agent.modelSelection.provider}: {agent.modelSelection.model}</p>
                             </div>
                             <div className="text-center">
                                 <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mx-auto mb-2">
                                     <span className="text-yellow-600 text-xl">🛠️</span>
                                 </div>
                                 <h3 className="font-medium mb-1">Capabilities</h3>
-                                <p className="text-sm text-muted-foreground">🔧 Tools: 1</p>
+                                <p className="text-sm text-muted-foreground">🔧 Tools: {agent.tools.length}</p>
                             </div>
                         </div>
 

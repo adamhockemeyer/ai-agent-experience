@@ -9,7 +9,7 @@ resource appConfig 'Microsoft.AppConfiguration/configurationStores@2024-05-01' e
 
 // Compose the config key and URL
 var documentSearchUrl = 'https://${functionAppName}.azurewebsites.net/runtime/webhooks/mcp/sse'
-var configKey = 'agents:document_search_agent'
+var configKey = 'agent:document_search_agent'
 
 // Full agent configuration with placeholder mcpDefinition; we'll inject URL and key in the script
 var documentSearchAgentConfig = {

@@ -74,6 +74,13 @@ export const agentFormSchema = z.object({
   ),
   requireJsonResponse: z.boolean(),
   displayFunctionCallStatus: z.boolean(),
+  // Chat history reduction settings
+  enableHistoryReduction: z.boolean(),
+  reducerMsgCount: z.number().int().min(1).max(100),
+  reducerThreshold: z.number().int().min(0).max(50),
 })
 
 export type AgentFormValues = z.infer<typeof agentFormSchema>
+
+// Backward compatibility alias
+export const formSchema = agentFormSchema

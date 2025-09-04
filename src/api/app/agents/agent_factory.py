@@ -5,6 +5,7 @@ from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai import FunctionChoiceBehavior
 from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecutionSettings
 from semantic_kernel.agents import ChatCompletionAgent, ChatHistoryAgentThread, AzureAIAgent, AzureAIAgentThread
+from semantic_kernel.contents import ChatHistorySummarizationReducer
 from semantic_kernel.functions import KernelArguments
 from azure.identity.aio import DefaultAzureCredential
 from opentelemetry import trace
@@ -41,14 +42,8 @@ class AgentFactory:
                 )
             else:
                 # Default to ChatCompletionAgent
-                # Create AI service for the chat completion agent
-                service = ServiceFactory.create_service(agent_config)
-                if service:
-                    # Add service to kernel for other potential users
-                    kernel.add_service(service)
-                
                 return await AgentFactory._create_chat_completion_agent(
-                    kernel, agent_config, kernel_settings, plugins, service
+                    kernel, agent_config, kernel_settings, plugins, service=None
                 )
     @staticmethod
     async def _create_chat_completion_agent(
@@ -61,6 +56,13 @@ class AgentFactory:
         """Create a ChatCompletionAgent."""
         
         try:    
+            # Create AI service for the chat completion agent if not provided
+            if not service:
+                service = ServiceFactory.create_service(agent_config)
+                if service:
+                    # Add service to kernel for other potential users
+                    kernel.add_service(service)
+            
             # Create agent with the plugins, passing service directly if available
             if service:
                 chat_agent = ChatCompletionAgent(
@@ -79,8 +81,24 @@ class AgentFactory:
                     arguments=KernelArguments(settings=kernel_settings),
                     plugins=plugins
                 )
-              # Create a thread object to maintain the conversation state
+            
+            # Create a thread object to maintain the conversation state
             thread: ChatHistoryAgentThread = ChatHistoryAgentThread()
+            
+            # Configure chat history reduction if enabled
+            if agent_config.enableHistoryReduction and service:
+                logger.info(f"Enabling chat history reduction for agent {agent_config.id} with target_count={agent_config.reducerMsgCount}, threshold_count={agent_config.reducerThreshold}")
+                history_reducer = ChatHistorySummarizationReducer(
+                    target_count=agent_config.reducerMsgCount,
+                    threshold_count=agent_config.reducerThreshold,
+                    service=service  # Use the same service as the agent
+                )
+                # Try to replace the thread's chat history with the reducer
+                thread._chat_history = history_reducer
+                logger.info(f"Set thread chat history to reducer: {type(thread._chat_history).__name__}")
+            elif agent_config.enableHistoryReduction and not service:
+                logger.warning(f"Chat history reduction requested for agent {agent_config.id} but no service available - using default thread")
+                
             return chat_agent, thread
             
         except Exception as e:

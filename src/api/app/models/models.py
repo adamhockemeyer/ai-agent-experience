@@ -46,6 +46,10 @@ class Agent(BaseModel):
     tools: List[Tool]
     requireJsonResponse: bool
     displayFunctionCallStatus: bool = Field(False, description="Whether to display function call status in the response stream")
+    # Chat history reduction settings
+    enableHistoryReduction: bool = Field(False, description="Whether to enable chat history reduction")
+    reducerMsgCount: int = Field(10, description="Target number of messages to retain after reduction")
+    reducerThreshold: int = Field(10, description="Buffer to prevent premature reduction")
     
     model_config = ConfigDict(extra="allow")
 

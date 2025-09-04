@@ -9,7 +9,7 @@ import { HelpCircle, Plus, Trash, Bot } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { UseFormReturn } from "react-hook-form"
 import type { z } from "zod"
-import type { formSchema } from "../utils/form-schema"
+import type { formSchema } from "../utils/form-utils"
 
 type FormValues = z.infer<typeof formSchema>
 

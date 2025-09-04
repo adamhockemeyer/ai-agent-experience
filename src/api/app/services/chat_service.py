@@ -18,6 +18,7 @@ from app.services.function_call_stream import FunctionCallStream
 from app.services.file_processor import FileProcessor
 
 from app.config.config import get_settings
+from semantic_kernel.connectors.ai.chat_completion_client_base import ChatCompletionClientBase
 
 # Semantic Kernel imports for multimodal support
 from semantic_kernel.contents import ImageContent, TextContent, ChatMessageContent
@@ -45,7 +46,21 @@ class ChatService:
             
             # Try to load existing thread first
             existing_thread = await self.thread_storage.load(session_id)
-              # If function call status should be displayed, prepare the function call stream
+            logger.info(f"Loaded existing_thread for session {session_id}: {existing_thread is not None}, type: {type(existing_thread)}")
+            logger.info(f"existing_thread repr: {repr(existing_thread)}")
+            logger.info(f"existing_thread bool evaluation: {bool(existing_thread)}")
+            logger.info(f"existing_thread is None: {existing_thread is None}")
+            logger.info(f"existing_thread == None: {existing_thread == None}")
+            if existing_thread is not None:
+                logger.info(f"existing_thread details: has_stored_messages={hasattr(existing_thread, '_stored_messages')}")
+                logger.info(f"existing_thread class: {existing_thread.__class__}")
+                logger.info(f"existing_thread module: {existing_thread.__class__.__module__}")
+                if hasattr(existing_thread, '_stored_messages'):
+                    logger.info(f"existing_thread._stored_messages length: {len(existing_thread._stored_messages)}")
+            else:
+                logger.info("existing_thread is None - no thread found")
+            
+            # If function call status should be displayed, prepare the function call stream
             function_stream = None
             if agent.displayFunctionCallStatus:
                 function_stream = FunctionCallStream.get_or_create(session_id)
@@ -88,7 +103,11 @@ class ChatService:
                     thread: Union[ChatHistoryAgentThread, AzureAIAgentThread] = cast(Union[ChatHistoryAgentThread, AzureAIAgentThread], thread_temp)
                     
                     # Handle regular thread restoration for non-AzureAI threads
-                    if existing_thread:
+                    if existing_thread is not None:
+                        logger.info(f"Checking existing_thread for session {session_id}: type={type(existing_thread)}, has_stored_messages={hasattr(existing_thread, '_stored_messages')}")
+                        if hasattr(existing_thread, '_stored_messages'):
+                            logger.info(f"existing_thread has {len(existing_thread._stored_messages)} stored messages")
+                        
                         # Skip AzureAIAgentThread since we already handled it above
                         if hasattr(existing_thread, 'thread_type') and existing_thread.thread_type == "AzureAIAgentThread":
                             if agent.agentType == "AzureAIAgent":
@@ -96,11 +115,104 @@ class ChatService:
                             else:
                                 logger.warning(f"Found AzureAIAgentThread ID but agent is not AzureAIAgent type, using new thread")
                         # Use existing thread if it's the same type
-                        elif isinstance(existing_thread, type(thread)):
+                        elif type(existing_thread).__name__ == type(thread).__name__:
+                            logger.info(f"Type check passed: existing_thread={type(existing_thread).__name__} matches thread={type(thread).__name__}")
                             logger.info(f"Using existing thread for session {session_id}")
                             thread = existing_thread
+                            logger.info(f"After assignment: thread has _stored_messages={hasattr(thread, '_stored_messages')}")
+                            
+                            # Check if the restored thread has stored messages from before reduction
+                            if hasattr(thread, '_stored_messages') and thread._stored_messages:
+                                logger.info(f"Found {len(thread._stored_messages)} stored messages from previous session for {session_id}")
+                                logger.debug(f"Sample stored messages: {[f'[{msg.role}] {msg.content[:50]}...' for msg in thread._stored_messages[:3]]}")
+                                
+                                # CRITICAL: Add the stored messages back to the thread to restore conversation history
+                                # This is necessary for the agent to have access to previous conversation context
+                                for stored_message in thread._stored_messages:
+                                    thread._chat_history.add_message(stored_message)
+                                
+                                logger.info(f"Restored {len(thread._stored_messages)} messages to thread for session {session_id}")
+                                # Clear the stored messages since they're now in the thread
+                                thread._stored_messages = []
+                            else:
+                                logger.info(f"No stored messages found in restored thread for {session_id}: has_attr={hasattr(thread, '_stored_messages')}, is_empty={not getattr(thread, '_stored_messages', None)}")
                         else:
-                            logger.warning(f"Existing thread type {type(existing_thread)} not compatible with {type(thread)}, using new thread")
+                            logger.warning(f"Existing thread type {type(existing_thread).__name__} not compatible with {type(thread).__name__}, using new thread")
+                    else:
+                        logger.info(f"No existing thread found for session {session_id}, using new thread")
+                
+                    # IMPORTANT: Re-apply reducer configuration for both new and restored threads
+                    # This ensures that restored threads from storage also have the reducer properly configured
+                    logger.info(f"🔧 Checking reducer conditions - enableHistoryReduction: {agent.enableHistoryReduction}, has_chat_history: {hasattr(thread, '_chat_history')}")
+                    if agent.enableHistoryReduction and hasattr(thread, '_chat_history'):
+                        # Import here to avoid circular imports
+                        from semantic_kernel.contents import ChatHistorySummarizationReducer
+                        
+                        logger.info(f"🔧 Current chat history type: {type(thread._chat_history).__name__}")
+                        
+                        # Check if it's already a reducer with correct configuration
+                        if isinstance(thread._chat_history, ChatHistorySummarizationReducer):
+                            # Check if the configuration matches
+                            current_target = getattr(thread._chat_history, '_target_count', None)
+                            current_threshold = getattr(thread._chat_history, '_threshold_count', None)
+                            
+                            if current_target == agent.reducerMsgCount and current_threshold == agent.reducerThreshold:
+                                logger.info(f"✅ Reducer already properly configured with target={current_target}, threshold={current_threshold}")
+                            else:
+                                logger.info(f"🔧 Reducer configuration mismatch - current: target={current_target}, threshold={current_threshold}, expected: target={agent.reducerMsgCount}, threshold={agent.reducerThreshold}")
+                                # Need to re-apply with correct configuration
+                                need_reapply = True
+                        else:
+                            logger.info(f"🔧 Chat history is not a reducer, need to apply reducer configuration")
+                            need_reapply = True
+                        
+                        # Only re-apply if needed
+                        if 'need_reapply' in locals() and need_reapply:
+                            logger.info(f"🔧 Applying chat history reducer to thread for session {session_id}")
+                            # Create the reducer with the same service used by the agent
+                            try:
+                                logger.info(f"🔧 Starting reducer application process...")
+                                # Get the service from the ai_agent kernel (not the agent model)
+                                service = None
+                                if hasattr(ai_agent, 'kernel') and ai_agent.kernel:
+                                    chat_services = ai_agent.kernel.get_services_by_type(ChatCompletionClientBase)
+                                    if chat_services:
+                                        service = list(chat_services.values())[0]
+                                        logger.info(f"🔧 Found chat service from ai_agent.kernel: {type(service).__name__}")
+                                elif hasattr(agent, '_kernel') and agent._kernel:
+                                    chat_services = agent._kernel.get_services_by_type(ChatCompletionClientBase)
+                                    if chat_services:
+                                        service = list(chat_services.values())[0]
+                                        logger.info(f"🔧 Found chat service from agent._kernel: {type(service).__name__}")
+                                
+                                if service:
+                                    logger.info(f"🔧 Creating reducer with target_count={agent.reducerMsgCount}, threshold_count={agent.reducerThreshold}")
+                                    history_reducer = ChatHistorySummarizationReducer(
+                                        target_count=agent.reducerMsgCount,
+                                        threshold_count=agent.reducerThreshold,
+                                        service=service
+                                    )
+                                    
+                                    # Store existing messages if any
+                                    existing_messages = []
+                                    if hasattr(thread._chat_history, 'messages') and thread._chat_history.messages:
+                                        existing_messages = list(thread._chat_history.messages)
+                                        logger.info(f"🔧 Found {len(existing_messages)} existing messages to preserve")
+                                    
+                                    # Replace the chat history with the reducer
+                                    logger.info(f"🔧 Replacing chat history with reducer...")
+                                    thread._chat_history = history_reducer
+                                    
+                                    # Restore the existing messages to the reducer
+                                    for msg in existing_messages:
+                                        thread._chat_history.add_message(msg)
+                                    
+                                    logger.info(f"✅ Successfully applied reducer to thread: {type(thread._chat_history).__name__} with {len(existing_messages)} messages")
+                                else:
+                                    logger.warning(f"❌ Could not find chat service for reducer configuration")
+                                    logger.info(f"🔧 Debug: ai_agent has kernel: {hasattr(ai_agent, 'kernel')}, agent has _kernel: {hasattr(agent, '_kernel')}")
+                            except Exception as e:
+                                logger.error(f"❌ Failed to apply reducer to thread: {e}", exc_info=True)
                 
                     # Create a queue for merging content and function call events
                     merged_queue = asyncio.Queue()
@@ -211,6 +323,79 @@ class ChatService:
                     
                     # Wait for both tasks to complete
                     await asyncio.gather(content_task, function_task)
+                    
+                    # Attempt chat history reduction if enabled and applicable
+                    if thread and agent.enableHistoryReduction:
+                        try:
+                            # Only attempt reduction for ChatHistoryAgentThread (ChatCompletionAgent)
+                            if isinstance(thread, ChatHistoryAgentThread):
+                                current_msg_count = len(thread)
+                                logger.info(f"Chat history reduction enabled for session {session_id}. Current message count: {current_msg_count}")
+                                
+                                # Detailed debugging: check how message count is calculated
+                                logger.debug(f"🔍 Thread length calculation: len(thread)={len(thread)}")
+                                if hasattr(thread, '_chat_history') and hasattr(thread._chat_history, 'messages'):
+                                    actual_msg_count = len(thread._chat_history.messages) if thread._chat_history.messages else 0
+                                    logger.debug(f"🔍 Actual _chat_history.messages count: {actual_msg_count}")
+                                
+                                # Log reducer configuration if available
+                                if hasattr(thread, '_chat_history') and hasattr(thread._chat_history, 'target_count'):
+                                    target_count = getattr(thread._chat_history, 'target_count', 'unknown')
+                                    threshold_count = getattr(thread._chat_history, 'threshold_count', 'unknown')
+                                    trigger_threshold = target_count + threshold_count if isinstance(target_count, int) and isinstance(threshold_count, int) else 'unknown'
+                                    logger.info(f"📊 Reducer config: target_count={target_count}, threshold_count={threshold_count}, triggers_at={trigger_threshold}")
+                                    
+                                    if isinstance(trigger_threshold, int):
+                                        should_reduce = current_msg_count >= trigger_threshold
+                                        logger.info(f"🎯 Should reduce? {current_msg_count} >= {trigger_threshold} = {should_reduce}")
+                                
+                                logger.info(f"Attempting chat history reduction for session {session_id}")
+                                
+                                # Let's inspect the reducer state before calling reduce()
+                                if hasattr(thread, '_chat_history'):
+                                    chat_history = thread._chat_history
+                                    logger.info(f"🔍 Chat history type: {type(chat_history).__name__}")
+                                    if hasattr(chat_history, 'target_count') and hasattr(chat_history, 'threshold_count'):
+                                        logger.info(f"🔍 Reducer attributes: target={chat_history.target_count}, threshold={chat_history.threshold_count}")
+                                    if hasattr(chat_history, 'messages'):
+                                        logger.info(f"🔍 Chat history messages count: {len(chat_history.messages) if chat_history.messages else 0}")
+                                
+                                logger.info(f"🎯 Calling thread.reduce() for session {session_id}")
+                                is_reduced = await thread.reduce()
+                                logger.info(f"🔍 Reduce operation returned: {is_reduced} (type: {type(is_reduced)})")
+                                if is_reduced:
+                                    new_msg_count = len(thread)
+                                    logger.info(f"✅ Chat history REDUCED for session {session_id}: {current_msg_count} → {new_msg_count} messages")
+                                    
+                                    # Log summary if present for debugging
+                                    async for msg in thread.get_messages():
+                                        if msg.metadata and msg.metadata.get("__summary__"):
+                                            logger.info(f"📝 Summary created: {msg.content[:100]}...")
+                                            break
+                                    
+                                    # After reduction, create a new thread without reducer for serialization
+                                    # This avoids the pickle issue with ChatHistorySummarizationReducer
+                                    if hasattr(thread, 'chat_history') and hasattr(thread.chat_history, 'messages'):
+                                        logger.debug(f"Creating new thread without reducer for serialization")
+                                        new_thread = ChatHistoryAgentThread()
+                                        # Copy the reduced messages to the new thread
+                                        for msg in thread.chat_history.messages:
+                                            new_thread._chat_history.add_message(msg)
+                                        thread = new_thread
+                                else:
+                                    logger.info(f"ℹ️  No reduction needed for session {session_id} - current message count: {current_msg_count}")
+                            else:
+                                logger.debug(f"Chat history reduction not applicable for thread type: {type(thread).__name__}")
+                        except Exception as reduction_error:
+                            logger.warning(f"Error during chat history reduction for session {session_id}: {str(reduction_error)}")
+                            # Don't fail the entire chat operation due to reduction error
+                    else:
+                        if thread:
+                            logger.debug(f"Chat history reduction disabled for session {session_id} (enableHistoryReduction={agent.enableHistoryReduction})")
+                        else:
+                            logger.debug(f"No thread available for reduction for session {session_id}")
+                            logger.warning(f"Error during chat history reduction for session {session_id}: {str(reduction_error)}")
+                            # Don't fail the entire chat operation due to reduction error
                     
                     # Persist thread after successful completion
                     if thread:

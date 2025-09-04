@@ -18,7 +18,7 @@ import { AgentVisualizationErrorBoundary } from "./agent-visualization-error-bou
 import { useWebsiteConfig } from "@/lib/hooks/use-website-config"
 import { useAvailableAgents } from "@/lib/hooks/use-available-agents"
 import { useAvailableModels } from "@/lib/hooks/use-available-models"
-import { formSchema, type AgentFormValues } from "./utils/form-schema"
+import { formSchema, type AgentFormValues } from "./utils/form-utils"
 import BasicSettingsSection from "./form-sections/basic-settings-section"
 import ModelSettingsSection from "./form-sections/model-settings-section"
 import ToolsSection from "./form-sections/tools-section"
@@ -73,7 +73,13 @@ export default function AgentForm({ agent, isEditing = false }: AgentFormProps) 
   // Initialize form with default values or agent data
   const form = useForm<AgentFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: agent || {
+    defaultValues: agent ? {
+      ...agent,
+      // Ensure backward compatibility for new fields
+      enableHistoryReduction: agent.enableHistoryReduction ?? false,
+      reducerMsgCount: agent.reducerMsgCount ?? 10,
+      reducerThreshold: agent.reducerThreshold ?? 10,
+    } : {
       name: "",
       description: "",
       systemPrompt: "",
@@ -90,6 +96,9 @@ export default function AgentForm({ agent, isEditing = false }: AgentFormProps) 
       tools: [],
       requireJsonResponse: false,
       displayFunctionCallStatus: false,
+      enableHistoryReduction: false,
+      reducerMsgCount: 10,
+      reducerThreshold: 10,
     },
   })
 

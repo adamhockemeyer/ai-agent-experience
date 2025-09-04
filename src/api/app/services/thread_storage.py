@@ -3,7 +3,13 @@ import abc
 import pickle
 import base64
 import logging
+import os
+import abc
+import pickle
+import base64
+import logging
 from typing import Any, Optional, TypeVar, Generic
+from semantic_kernel.agents import ChatHistoryAgentThread
 
 logger = logging.getLogger(__name__)
 
@@ -15,18 +21,100 @@ class SerializableThread:
     Used primarily for AzureAIAgentThread which contains non-picklable components.
     """
     
-    def __init__(self, thread_type: str, thread_id: str, metadata: dict = None):
+    def __init__(self, thread_type: str, thread_id: str = None, messages: list = None, metadata: dict = None):
         """
         Initialize a serializable thread wrapper.
         
         Args:
-            thread_type: The type of thread this represents (e.g., "AzureAIAgentThread")
-            thread_id: The thread ID used by the service
+            thread_type: The type of thread this represents (e.g., "AzureAIAgentThread", "ChatHistoryAgentThread")
+            thread_id: The thread ID used by the service (for AzureAIAgentThread)
+            messages: The chat messages (for ChatHistoryAgentThread with reducers)
             metadata: Optional metadata to store with the thread
         """
         self.thread_type = thread_type
         self.thread_id = thread_id
+        self.messages = messages or []
         self.metadata = metadata or {}
+
+async def create_serializable_thread_copy(thread):
+    """
+    Create a serializable representation of a thread by extracting its messages.
+    
+    Args:
+        thread: The original thread that may contain non-serializable components
+        
+    Returns:
+        A dictionary representation that can be safely pickled
+    """
+    if hasattr(thread, '__class__') and thread.__class__.__name__ == "ChatHistoryAgentThread":
+        # Extract messages using the async generator
+        messages = []
+        try:
+            async for message in thread.get_messages():
+                messages.append(message)
+        except Exception as e:
+            logger.warning(f"Could not retrieve messages from thread {thread.id}: {e}")
+            messages = []
+        
+        # Create a simple dictionary representation that's picklable
+        thread_data = {
+            'thread_type': 'ChatHistoryAgentThread',
+            'thread_id': getattr(thread, 'id', None),
+            'messages': messages
+        }
+        
+        logger.info(f"Created serializable representation for ChatHistoryAgentThread {getattr(thread, 'id', 'unknown')} with {len(messages)} messages")
+        if messages:
+            logger.debug(f"Sample messages in thread {getattr(thread, 'id', 'unknown')}: {[f'[{msg.role}] {msg.content[:50]}...' for msg in messages[:3]]}")
+        return thread_data
+    
+    # For other thread types, return as-is (they should already be serializable)
+    return thread
+
+def restore_thread_from_serializable(thread_data):
+    """
+    Restore a thread object from a dictionary representation.
+    
+    Args:
+        thread_data: A dictionary containing thread data or the original thread object
+        
+    Returns:
+        A reconstructed thread object with stored_messages attribute if applicable
+    """
+    logger.debug(f"restore_thread_from_serializable called with: {type(thread_data)}")
+    
+    if isinstance(thread_data, dict) and thread_data.get('thread_type') == 'ChatHistoryAgentThread':
+        logger.debug(f"ChatHistoryAgentThread dict detected with {len(thread_data.get('messages', []))} messages")
+        
+        # Create a new empty thread
+        new_thread = ChatHistoryAgentThread()
+        logger.debug(f"Created new_thread: {type(new_thread)}")
+        
+        # Add stored messages as an attribute that the chat service can access
+        new_thread._stored_messages = thread_data.get('messages', [])
+        new_thread._original_thread_id = thread_data.get('thread_id')
+        
+        logger.info(f"Restored ChatHistoryAgentThread with {len(thread_data.get('messages', []))} stored messages available")
+        if thread_data.get('messages'):
+            logger.debug(f"Sample restored messages: {[f'[{msg.role}] {msg.content[:50]}...' for msg in thread_data.get('messages', [])[:3]]}")
+        
+        logger.debug(f"Returning new_thread: {type(new_thread)}")
+        return new_thread
+    elif isinstance(thread_data, SerializableThread):
+        # Handle legacy SerializableThread objects for backward compatibility
+        logger.debug(f"SerializableThread detected, thread_type: {thread_data.thread_type}")
+        if thread_data.thread_type == "ChatHistoryAgentThread":
+            new_thread = ChatHistoryAgentThread()
+            new_thread._stored_messages = thread_data.messages
+            new_thread._original_thread_id = thread_data.thread_id
+            
+            logger.info(f"Restored ChatHistoryAgentThread with {len(thread_data.messages)} stored messages available")
+            logger.debug(f"Returning new_thread: {type(new_thread)}")
+            return new_thread
+    
+    # If not a thread dict/object, return as-is
+    logger.debug(f"Not a ChatHistoryAgentThread representation, returning as-is: {type(thread_data)}")
+    return thread_data
 
 # Global storage that persists across instances
 _GLOBAL_MEMORY_STORAGE = {}
@@ -68,11 +156,12 @@ class InMemoryThreadStorage(ThreadStorage[T]):
             if hasattr(thread, '__class__') and thread.__class__.__name__ == "AzureAIAgentThread":
                 thread_id = getattr(thread, "id", None)
                 if thread_id:
-                    serializable = SerializableThread(
-                        thread_type="AzureAIAgentThread",
-                        thread_id=thread_id
-                    )
-                    # Use serialization for the wrapper
+                    serializable = {
+                        'thread_type': "AzureAIAgentThread",
+                        'thread_id': thread_id,
+                        'messages': []
+                    }
+                    # Use serialization for the dictionary
                     serialized_bytes = pickle.dumps(serializable)
                     serialized_thread = base64.b64encode(serialized_bytes).decode('ascii') if self.use_serialization else serializable
                     self._storage[session_id] = serialized_thread
@@ -82,15 +171,18 @@ class InMemoryThreadStorage(ThreadStorage[T]):
                     logger.warning(f"AzureAIAgentThread has no ID, cannot save for session {session_id}")
                     return
             
+            # Create a clean, serializable copy for all other thread types
+            clean_thread = await create_serializable_thread_copy(thread)
+            
             # Regular serialization for other thread types
             if self.use_serialization:
                 # Use base64 encoding for consistency with other storage methods
-                serialized_bytes = pickle.dumps(thread)
+                serialized_bytes = pickle.dumps(clean_thread)
                 serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
                 self._storage[session_id] = serialized_thread
             else:
                 # Store directly for better performance in development
-                self._storage[session_id] = thread
+                self._storage[session_id] = clean_thread
                 
             logger.debug(f"Saved thread for session {session_id} to memory")
         except Exception as e:
@@ -108,11 +200,20 @@ class InMemoryThreadStorage(ThreadStorage[T]):
                     thread = pickle.loads(binary_data)
                 else:
                     thread = data
+                
+                # Handle thread restoration from dictionary or legacy SerializableThread
+                thread = restore_thread_from_serializable(thread)
+                
+                if hasattr(thread, '_stored_messages'):
+                    logger.info(f"Successfully loaded thread with {len(thread._stored_messages)} stored messages for session {session_id}")
+                else:
+                    logger.info(f"Loaded thread for session {session_id} (no stored messages)")
                     
                 logger.debug(f"Loaded thread for session {session_id} from memory")
                 return thread
             except Exception as e:
                 logger.error(f"Error loading thread from memory: {str(e)}", exc_info=True)
+                return None
                 
         return None
 
@@ -134,8 +235,11 @@ class RedisThreadStorage(ThreadStorage[T]):
     async def _get_client(self):
         """Lazy initialization of Redis client."""
         if self._redis_client is None:
-            import redis.asyncio as redis
-            self._redis_client = redis.from_url(self.connection_string)
+            try:
+                import redis.asyncio as redis
+                self._redis_client = redis.from_url(self.connection_string)
+            except ImportError:
+                raise ImportError("redis package is required for RedisThreadStorage. Install it with: pip install redis")
         return self._redis_client
         
     async def save(self, session_id: str, thread: T) -> None:
@@ -147,11 +251,12 @@ class RedisThreadStorage(ThreadStorage[T]):
             if hasattr(thread, '__class__') and thread.__class__.__name__ == "AzureAIAgentThread":
                 thread_id = getattr(thread, "id", None)
                 if thread_id:
-                    serializable = SerializableThread(
-                        thread_type="AzureAIAgentThread",
-                        thread_id=thread_id
-                    )
-                    # Serialize the wrapper instead of the thread
+                    serializable = {
+                        'thread_type': "AzureAIAgentThread",
+                        'thread_id': thread_id,
+                        'messages': []
+                    }
+                    # Serialize the dictionary instead of the thread
                     serialized_bytes = pickle.dumps(serializable)
                     serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
                     
@@ -163,8 +268,11 @@ class RedisThreadStorage(ThreadStorage[T]):
                     logger.warning(f"AzureAIAgentThread has no ID, cannot save for session {session_id}")
                     return
             
+            # Create a clean, serializable copy for all other thread types
+            clean_thread = await create_serializable_thread_copy(thread)
+            
             # Use base64 encoding for consistent serialization
-            serialized_bytes = pickle.dumps(thread)
+            serialized_bytes = pickle.dumps(clean_thread)
             serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
             
             key = f"thread:{session_id}"
@@ -185,7 +293,14 @@ class RedisThreadStorage(ThreadStorage[T]):
                 # Deserialize with base64 decoding
                 binary_data = base64.b64decode(serialized_thread)
                 thread = pickle.loads(binary_data)
-                logger.info(f"Loaded thread for session {session_id} from Redis")
+                
+                # Handle thread restoration from dictionary or legacy SerializableThread
+                thread = restore_thread_from_serializable(thread)
+                
+                if hasattr(thread, '_stored_messages'):
+                    logger.info(f"Successfully loaded thread with {len(thread._stored_messages)} stored messages for session {session_id} from Redis")
+                else:
+                    logger.info(f"Loaded thread for session {session_id} from Redis (no stored messages)")
                 return thread
             return None
         except Exception as e:
@@ -260,10 +375,11 @@ class CosmosDbThreadStorage(ThreadStorage[T]):
             if hasattr(thread, '__class__') and thread.__class__.__name__ == "AzureAIAgentThread":
                 thread_id = getattr(thread, "id", None)
                 if thread_id:
-                    serializable = SerializableThread(
-                        thread_type="AzureAIAgentThread",
-                        thread_id=thread_id
-                    )
+                    serializable = {
+                        'thread_type': "AzureAIAgentThread",
+                        'thread_id': thread_id,
+                        'messages': []
+                    }
                     # Serialize the wrapper instead of the thread
                     serialized_bytes = pickle.dumps(serializable)
                     serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
@@ -284,20 +400,51 @@ class CosmosDbThreadStorage(ThreadStorage[T]):
                     logger.warning(f"AzureAIAgentThread has no ID, cannot save for session {session_id}")
                     return
             
-            # Serialize the thread using base64 encoding for better compatibility
-            serialized_bytes = pickle.dumps(thread)
-            serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
+            # Create a clean, serializable copy for all other thread types
+            clean_thread = await create_serializable_thread_copy(thread)
             
-            # Create document with configurable partition key
-            document = {
-                'id': session_id,
-                self.partition_key: session_id,
-                'thread': serialized_thread,
-                'ttl': self.ttl_seconds
-            }
-            
-            # Upsert the document
-            await container.upsert_item(document)
+            # Direct pickle serialization for clean threads
+            try:
+                # Serialize the clean thread using base64 encoding for better compatibility
+                serialized_bytes = pickle.dumps(clean_thread)
+                serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
+                
+                # Create document with configurable partition key
+                document = {
+                    'id': session_id,
+                    self.partition_key: session_id,
+                    'thread': serialized_thread,
+                    'ttl': self.ttl_seconds
+                }
+                
+                # Upsert the document
+                await container.upsert_item(document)
+                logger.info(f"Saved {type(clean_thread).__name__} for session {session_id} to Cosmos DB")
+                
+            except Exception as pickle_error:
+                logger.error(f"Failed to serialize clean thread for session {session_id}: {str(pickle_error)}")
+                # Final fallback: save only essential thread state as dictionary
+                if hasattr(clean_thread, 'chat_history') and hasattr(clean_thread.chat_history, 'messages'):
+                    logger.info(f"Attempting to save thread messages only for session {session_id}")
+                    serializable = {
+                        'thread_type': clean_thread.__class__.__name__,
+                        'thread_id': None,
+                        'messages': [msg for msg in clean_thread.chat_history.messages] if clean_thread.chat_history.messages else []
+                    }
+                    serialized_bytes = pickle.dumps(serializable)
+                    serialized_thread = base64.b64encode(serialized_bytes).decode('ascii')
+                    
+                    document = {
+                        'id': session_id,
+                        self.partition_key: session_id,
+                        'thread': serialized_thread,
+                        'ttl': self.ttl_seconds
+                    }
+                    
+                    await container.upsert_item(document)
+                    logger.info(f"Saved thread messages fallback for session {session_id} to Cosmos DB")
+                else:
+                    raise pickle_error
             logger.info(f"Saved thread for session {session_id} to Cosmos DB")
             
         except Exception as e:
@@ -320,7 +467,18 @@ class CosmosDbThreadStorage(ThreadStorage[T]):
                 serialized_thread = items[0]['thread']
                 binary_data = base64.b64decode(serialized_thread)
                 thread = pickle.loads(binary_data)
-                logger.info(f"Loaded thread for session {session_id} from Cosmos DB")
+                logger.debug(f"Deserialized thread from pickle: {type(thread)}")
+                
+                # Handle thread restoration from dictionary or legacy SerializableThread
+                thread = restore_thread_from_serializable(thread)
+                logger.debug(f"After restore_thread_from_serializable: {type(thread)}")
+                
+                if hasattr(thread, '_stored_messages'):
+                    logger.info(f"Successfully loaded thread with {len(thread._stored_messages)} stored messages for session {session_id} from Cosmos DB")
+                else:
+                    logger.info(f"Loaded thread for session {session_id} from Cosmos DB (no stored messages)")
+                
+                logger.debug(f"Final thread being returned: {type(thread)}")
                 return thread
                 
             return None

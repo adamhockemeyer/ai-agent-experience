@@ -16,6 +16,9 @@ export interface Agent {
   tools: Tool[]
   requireJsonResponse: boolean
   displayFunctionCallStatus: boolean // Add this new field
+  enableHistoryReduction?: boolean // Chat history reduction settings
+  reducerMsgCount?: number
+  reducerThreshold?: number
 }
 
 export interface Tool {
