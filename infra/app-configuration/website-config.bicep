@@ -4,6 +4,7 @@ param authenticationEnabled bool = false
 param openAIDeployments array
 param location string = resourceGroup().location
 param identityId string // User-assigned managed identity resource ID
+param storageAccountName string // Storage account name for deployment script storage
 
 // Base64 encode the deployments array for safe script passing
 var deploymentsBase64 = base64(string(openAIDeployments))
@@ -11,6 +12,9 @@ var deploymentsBase64 = base64(string(openAIDeployments))
 resource appConfig 'Microsoft.AppConfiguration/configurationStores@2024-05-01' existing = {
   name: appConfigName
 }
+
+// Reference the storage account for deployment script settings
+var storageAccountResourceId = resourceId('Microsoft.Storage/storageAccounts', storageAccountName)
 
 resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'setWebsiteConfig-${uniqueString(appConfigName)}'
@@ -26,6 +30,10 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
     azCliVersion: '2.56.0'
     retentionInterval: 'P1D'
     timeout: 'PT5M'
+    storageAccountSettings: {
+      storageAccountName: storageAccountName
+      storageAccountKey: listKeys(storageAccountResourceId, '2023-05-01').keys[0].value
+    }
     scriptContent: '''
       #!/bin/bash
       set -e

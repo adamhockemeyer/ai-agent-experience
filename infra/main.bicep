@@ -334,6 +334,7 @@ module websiteConfig 'app-configuration/website-config.bicep' = {
     openAIDeployments: openAIDeployments1.outputs.deployments
     location: location
     identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+    storageAccountName: storageAccount.outputs.storageAccountName
   }
 }
 
@@ -346,6 +347,7 @@ module weatherAgentConfig 'app-configuration/agent_weather_agent_config.bicep' =
     apimSubscriptionName: apimSubscriptionName
     location: location
     identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+    storageAccountName: storageAccount.outputs.storageAccountName
   }
 }
 
@@ -356,6 +358,7 @@ module sapAgentConfig 'app-configuration/agent_sap_agent_config.bicep' = {
     sapFunctionAppName: sapDemoAPIFunctionApp.outputs.name
     location: location
     identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+    storageAccountName: storageAccount.outputs.storageAccountName
   }
 }
 
@@ -365,6 +368,7 @@ module orchestratorAgentConfig 'app-configuration/agent_orchestrator_agent_confi
     appConfigName: appConfig.outputs.name
     location: location
     identityId: userAssignedManagedIdentity.id // Pass the identity resource ID
+    storageAccountName: storageAccount.outputs.storageAccountName
   }
 }
 
@@ -661,11 +665,7 @@ resource storageQueueRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments
 // Assign Storage Account Contributor role to allow management operations on the storage account
 // (e.g., setting properties, listing keys if needed by downstream processes)
 resource storageAccountContributorRoleAssignmentUAMI 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(
-    userAssignedManagedIdentity.id,
-    sharedRoleDefinitions['Storage Account Contributor'],
-    storageAccount.name
-  )
+  name: guid(userAssignedManagedIdentity.id, sharedRoleDefinitions['Storage Account Contributor'], storageAccount.name)
   properties: {
     roleDefinitionId: resourceId(
       'Microsoft.Authorization/roleDefinitions',
@@ -709,7 +709,8 @@ resource storageSystemTopic 'Microsoft.EventGrid/systemTopics@2023-12-15-preview
 
 // Event subscription targeting the MCP function's blob trigger function
 resource storageBlobEventSubscription 'Microsoft.EventGrid/systemTopics/eventSubscriptions@2023-12-15-preview' = {
-  name: '${storageSystemTopic.name}/mcp-search-index-subscription'
+  parent: storageSystemTopic
+  name: 'mcp-search-index-subscription'
   properties: {
     destination: {
       endpointType: 'AzureFunction'
@@ -742,7 +743,6 @@ resource storageBlobEventSubscription 'Microsoft.EventGrid/systemTopics/eventSub
     eventDeliverySchema: 'EventGridSchema'
   }
   dependsOn: [
-  storageSystemTopic
     mcpSearchIndexFunctionApp
   ]
 }
@@ -856,7 +856,7 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
         value: '1536'
       }
     ]
-    targetPort: 80
+    targetPort: 8000
   }
 }
 
@@ -1011,6 +1011,12 @@ module aiSearchRoleAssignments 'cognitive-services/ai-search-role-assignments.bi
   ]
 }
 
+// Reference the storage account for deployment script settings
+var storageAccountResourceId = resourceId(
+  'Microsoft.Storage/storageAccounts',
+  replace(replace('${prefix}storage', '-', ''), '_', '')
+)
+
 resource checkCapabilityHosts 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'checkCapabilityHosts'
   location: location
@@ -1023,6 +1029,10 @@ resource checkCapabilityHosts 'Microsoft.Resources/deploymentScripts@2023-08-01'
   }
   properties: {
     azCliVersion: '2.50.0'
+    storageAccountSettings: {
+      storageAccountName: storageAccount.outputs.storageAccountName
+      storageAccountKey: listKeys(storageAccountResourceId, '2023-05-01').keys[0].value
+    }
     scriptContent: '''
       # Debug: Print environment variables
       echo "Checking capability hosts..."
@@ -1180,4 +1190,3 @@ output AZURE_OPENAI_ENDPOINT string = cognitiveServices1.outputs.endpoint
 output AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME string = openAIDeployments1.outputs.embeddingDeploymentName
 // Expose the resolved naming prefix so post-deploy scripts (e.g., Event Grid subscription naming) can align
 output EVENTGRID_RESOURCE_PREFIX string = prefix
-

@@ -29,7 +29,7 @@ param containerRegistryName string = ''
 @description('Hostname suffix for container registry. Set when deploying to sovereign clouds')
 param containerRegistryHostSuffix string = 'azurecr.io'
 
-@allowed([ 'http', 'grpc' ])
+@allowed(['http', 'grpc'])
 @description('The protocol used by Dapr to connect to the app, e.g., HTTP or gRPC')
 param daprAppProtocol string = 'http'
 
@@ -46,7 +46,7 @@ param exists bool = false
 param ingressEnabled bool = true
 
 @description('The type of identity for the resource')
-@allowed([ 'None', 'SystemAssigned', 'UserAssigned' ])
+@allowed(['None', 'SystemAssigned', 'UserAssigned'])
 param identityType string = 'None'
 
 @description('The name of the user-assigned identity')
@@ -69,7 +69,7 @@ param external bool = true
 param serviceBinds array = []
 
 @description('The target port for the container')
-param targetPort int = 80
+param targetPort int = 8000
 
 resource existingApp 'Microsoft.App/containerApps@2023-05-02-preview' existing = if (exists) {
   name: name

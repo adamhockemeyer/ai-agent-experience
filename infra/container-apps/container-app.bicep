@@ -32,7 +32,7 @@ param containerRegistryName string = ''
 param containerRegistryHostSuffix string = 'azurecr.io'
 
 @description('The protocol used by Dapr to connect to the app, e.g., http or grpc')
-@allowed([ 'http', 'grpc' ])
+@allowed(['http', 'grpc'])
 param daprAppProtocol string = 'http'
 
 @description('The Dapr app ID')
@@ -51,7 +51,7 @@ param external bool = true
 param identityName string = ''
 
 @description('The type of identity for the resource')
-@allowed([ 'None', 'SystemAssigned', 'UserAssigned' ])
+@allowed(['None', 'SystemAssigned', 'UserAssigned'])
 param identityType string = 'None'
 
 @description('The name of the container image')
@@ -73,7 +73,7 @@ param serviceBinds array = []
 param serviceType string = ''
 
 @description('The target port for the container')
-param targetPort int = 80
+param targetPort int = 8000
 
 resource userIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = if (!empty(identityName)) {
   name: identityName
@@ -101,40 +101,50 @@ resource app 'Microsoft.App/containerApps@2023-05-02-preview' = {
   // otherwise the container app will throw a provision error
   // This also forces us to use an user assigned managed identity since there would no way to 
   // provide the system assigned identity with the ACR pull access before the app is created
-  dependsOn: usePrivateRegistry ? [ containerRegistryAccess ] : []
+  dependsOn: usePrivateRegistry ? [containerRegistryAccess] : []
   identity: {
     type: normalizedIdentityType
-    userAssignedIdentities: !empty(identityName) && normalizedIdentityType == 'UserAssigned' ? { '${userIdentity.id}': {} } : null
+    userAssignedIdentities: !empty(identityName) && normalizedIdentityType == 'UserAssigned'
+      ? { '${userIdentity.id}': {} }
+      : null
   }
   properties: {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
       activeRevisionsMode: revisionMode
-      ingress: ingressEnabled ? {
-        external: external
-        targetPort: targetPort
-        transport: 'auto'
-        corsPolicy: {
-          allowedOrigins: union([ 'https://portal.azure.com', 'https://ms.portal.azure.com' ], allowedOrigins)
+      ingress: ingressEnabled
+        ? {
+            external: external
+            targetPort: targetPort
+            transport: 'auto'
+            corsPolicy: {
+              allowedOrigins: union(['https://portal.azure.com', 'https://ms.portal.azure.com'], allowedOrigins)
+            }
+          }
+        : null
+      dapr: daprEnabled
+        ? {
+            enabled: true
+            appId: daprAppId
+            appProtocol: daprAppProtocol
+            appPort: ingressEnabled ? targetPort : 0
+          }
+        : { enabled: false }
+      secrets: [
+        for secret in items(secrets): {
+          name: secret.key
+          value: secret.value
         }
-      } : null
-      dapr: daprEnabled ? {
-        enabled: true
-        appId: daprAppId
-        appProtocol: daprAppProtocol
-        appPort: ingressEnabled ? targetPort : 0
-      } : { enabled: false }
-      secrets: [for secret in items(secrets): {
-        name: secret.key
-        value: secret.value
-      }]
+      ]
       service: !empty(serviceType) ? { type: serviceType } : null
-      registries: usePrivateRegistry ? [
-        {
-          server: '${containerRegistryName}.${containerRegistryHostSuffix}'
-          identity: userIdentity.id
-        }
-      ] : []
+      registries: usePrivateRegistry
+        ? [
+            {
+              server: '${containerRegistryName}.${containerRegistryHostSuffix}'
+              identity: userIdentity.id
+            }
+          ]
+        : []
     }
     template: {
       serviceBinds: !empty(serviceBinds) ? serviceBinds : null
@@ -162,7 +172,9 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2023-05-01'
 }
 
 output defaultDomain string = containerAppsEnvironment.properties.defaultDomain
-output identityPrincipalId string = normalizedIdentityType == 'None' ? '' : (empty(identityName) ? app.identity.principalId : userIdentity.properties.principalId)
+output identityPrincipalId string = normalizedIdentityType == 'None'
+  ? ''
+  : (empty(identityName) ? app.identity.principalId : userIdentity.properties.principalId)
 output imageName string = imageName
 output name string = app.name
 output serviceBind object = !empty(serviceType) ? { serviceId: app.id, name: name } : {}

@@ -1,6 +1,7 @@
 param appConfigName string
 param location string = resourceGroup().location
 param identityId string // User-assigned managed identity resource ID
+param storageAccountName string // Storage account name for deployment script storage
 
 resource appConfig 'Microsoft.AppConfiguration/configurationStores@2024-05-01' existing = {
   name: appConfigName
@@ -46,6 +47,9 @@ var playwrightAgentConfig = {
 // Convert the object to a JSON string and encode it to base64 to avoid escaping issues
 var playwrightAgentConfigJson = base64(string(playwrightAgentConfig))
 
+// Reference the storage account for deployment script settings
+var storageAccountResourceId = resourceId('Microsoft.Storage/storageAccounts', storageAccountName)
+
 resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'setAgentPlaywrightConfig-${uniqueString(appConfigName)}'
   location: location
@@ -60,6 +64,10 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
     azCliVersion: '2.56.0'
     retentionInterval: 'P1D'
     timeout: 'PT5M'
+    storageAccountSettings: {
+      storageAccountName: storageAccountName
+      storageAccountKey: listKeys(storageAccountResourceId, '2023-05-01').keys[0].value
+    }
     scriptContent: '''
       #!/bin/bash
       set -ex

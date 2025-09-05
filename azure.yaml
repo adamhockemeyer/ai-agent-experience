@@ -31,7 +31,8 @@ hooks:
             --parameters appConfigName=$env:AZURE_APPCONFIG_NAME `
                          functionAppName=$env:AZURE_FUNCTIONAPP_MCP_NAME `
                          identityId=$env:USER_ASSIGNED_MANAGED_IDENTITY_ID `
-                         location=$env:AZURE_LOCATION
+                         location=$env:AZURE_LOCATION `
+                         storageAccountName=$env:AZURE_STORAGE_ACCOUNT_NAME
         shell: pwsh
         interactive: true
         continueOnError: false
@@ -44,7 +45,8 @@ hooks:
             --parameters appConfigName="$AZURE_APPCONFIG_NAME" \
                          functionAppName="$AZURE_FUNCTIONAPP_MCP_NAME" \
                          identityId="$USER_ASSIGNED_MANAGED_IDENTITY_ID" \
-                         location="$AZURE_LOCATION"
+                         location="$AZURE_LOCATION" \
+                         storageAccountName="$AZURE_STORAGE_ACCOUNT_NAME"
         shell: sh
         interactive: true
         continueOnError: false
