@@ -193,12 +193,17 @@ class AgentFactory:
             # Create a thread object for AzureAIAgent
             # If thread_id is provided, use that existing thread during initialization
             if thread_id:
+                logger.info(f"🔗 Creating AzureAIAgentThread with existing thread_id: {thread_id}")
                 thread = AzureAIAgentThread(client=agents_client, thread_id=thread_id)
-                logger.info(f"Using existing thread with ID: {thread_id}")
+                logger.info(f"✅ Successfully created AzureAIAgentThread with existing thread ID: {thread_id}")
+                logger.debug(f"🔍 Thread details: id={getattr(thread, 'id', 'no_id')}, client_type={type(agents_client).__name__}")
             else:
+                logger.info(f"🆕 Creating new AzureAIAgentThread (no existing thread_id provided)")
                 # Create a new thread
                 thread = AzureAIAgentThread(client=agents_client)
-                logger.info(f"Created new thread for AzureAIAgent")
+                new_thread_id = getattr(thread, 'id', 'no_id')
+                logger.info(f"✅ Successfully created new AzureAIAgentThread with ID: {new_thread_id}")
+                logger.debug(f"🔍 New thread details: id={new_thread_id}, client_type={type(agents_client).__name__}")
             
             return azure_ai_agent, thread
             

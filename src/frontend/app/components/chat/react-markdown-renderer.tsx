@@ -75,16 +75,12 @@ function ToolCallSection({
 
 // Proper React Markdown implementation with table support
 function ProperMarkdownRenderer({ content, isStreaming }: ReactMarkdownRendererProps) {
-    // Debug: log the content to see what we're working with
-    console.log('Raw content:', content)
-
     // Preprocess content to handle tool calls properly
     const processedContent = content
         // Convert tool call details/summary to a format ReactMarkdown can handle
         .replace(
             /<details>\s*<summary>(🔄 Calling [^<]+)<\/summary>([\s\S]*?)<\/details>/g,
             (match, summary, details) => {
-                console.log('Found calling tool call:', { summary, details })
                 // Extract JSON from code blocks and store it for the collapsible section
                 const jsonMatch = details.match(/```json\n([\s\S]*?)\n```/)
                 const jsonContent = jsonMatch ? jsonMatch[1] : details.trim()
@@ -94,7 +90,6 @@ function ProperMarkdownRenderer({ content, isStreaming }: ReactMarkdownRendererP
         .replace(
             /<details>\s*<summary>(✅ Completed [^<]+)<\/summary>([\s\S]*?)<\/details>/g,
             (match, summary, details) => {
-                console.log('Found completed tool call:', { summary, details })
                 // Clean up any markdown formatting in details
                 const cleanDetails = details.replace(/\*\*(.*?)\*\*/g, '$1').trim()
                 return `\n\n---TOOL_CALL_COMPLETED---\n${summary}\n${cleanDetails}\n---END_TOOL_CALL---\n\n`
@@ -103,14 +98,11 @@ function ProperMarkdownRenderer({ content, isStreaming }: ReactMarkdownRendererP
         .replace(
             /<details>\s*<summary>(❌ Completed [^<]+)<\/summary>([\s\S]*?)<\/details>/g,
             (match, summary, details) => {
-                console.log('Found error tool call:', { summary, details })
                 // Clean up any markdown formatting in details
                 const cleanDetails = details.replace(/\*\*(.*?)\*\*/g, '$1').trim()
                 return `\n\n---TOOL_CALL_ERROR---\n${summary}\n${cleanDetails}\n---END_TOOL_CALL---\n\n`
             }
         )
-
-    console.log('Processed content:', processedContent)
 
     return (
         <div className="prose prose-sm dark:prose-invert max-w-none">
@@ -145,14 +137,12 @@ function ProperMarkdownRenderer({ content, isStreaming }: ReactMarkdownRendererP
 
                         // Check if this is a tool call JSON block that should be hidden
                         if (!inline && (content.includes('"format": "json"') || content.includes('"api_version"'))) {
-                            console.log('Found JSON code block that might be tool call data:', content)
                             // Return null to hide standalone JSON blocks that are part of tool calls
                             return null
                         }
 
                         // Check if this is HTML content that should be rendered
                         if (!inline && className === 'language-html' && content.trim().startsWith('<')) {
-                            console.log('Found HTML code block, rendering as HTML:', content)
 
                             // Component to handle HTML rendering with loading state
                             function HtmlRenderer() {
@@ -206,7 +196,7 @@ function ProperMarkdownRenderer({ content, isStreaming }: ReactMarkdownRendererP
                                                             contentId: '${contentId}'
                                                         }, '*');
                                                     } catch(e) {
-                                                        console.log('Could not post message:', e);
+                                                        // Silent error handling for postMessage failures
                                                     }
                                                 }
                                                 

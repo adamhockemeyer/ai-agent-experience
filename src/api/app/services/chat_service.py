@@ -45,20 +45,34 @@ class ChatService:
             kernel = await KernelFactory.create_kernel(agent, session_id=session_id)
             
             # Try to load existing thread first
+            logger.info(f"🔍 Loading existing thread for session {session_id}")
             existing_thread = await self.thread_storage.load(session_id)
-            logger.info(f"Loaded existing_thread for session {session_id}: {existing_thread is not None}, type: {type(existing_thread)}")
-            logger.info(f"existing_thread repr: {repr(existing_thread)}")
-            logger.info(f"existing_thread bool evaluation: {bool(existing_thread)}")
+            logger.info(f"📄 Loaded existing_thread for session {session_id}: found={existing_thread is not None}, type={type(existing_thread)}")
+            logger.debug(f"🔍 existing_thread repr: {repr(existing_thread)}")
+            logger.debug(f"🔍 existing_thread bool evaluation: {bool(existing_thread)}")
             logger.info(f"existing_thread is None: {existing_thread is None}")
             logger.info(f"existing_thread == None: {existing_thread == None}")
             if existing_thread is not None:
-                logger.info(f"existing_thread details: has_stored_messages={hasattr(existing_thread, '_stored_messages')}")
-                logger.info(f"existing_thread class: {existing_thread.__class__}")
-                logger.info(f"existing_thread module: {existing_thread.__class__.__module__}")
+                logger.info(f"📄 Found existing thread for session {session_id}")
+                logger.info(f"🔍 existing_thread details: type={type(existing_thread)}, has_stored_messages={hasattr(existing_thread, '_stored_messages')}")
+                logger.info(f"🔍 existing_thread class: {existing_thread.__class__}")
+                logger.info(f"🔍 existing_thread module: {existing_thread.__class__.__module__}")
+                
+                # Log thread type details
+                if isinstance(existing_thread, dict):
+                    thread_type = existing_thread.get('thread_type', 'unknown')
+                    logger.info(f"🔍 Dictionary thread with thread_type: {thread_type}")
+                    if thread_type == "AzureAIAgentThread":
+                        logger.info(f"🔗 AzureAIAgentThread dict with thread_id: {existing_thread.get('thread_id')}")
+                elif hasattr(existing_thread, 'thread_type'):
+                    logger.info(f"🔍 Object thread with thread_type: {existing_thread.thread_type}")
+                    if existing_thread.thread_type == "AzureAIAgentThread":
+                        logger.info(f"🔗 AzureAIAgentThread object with thread_id: {getattr(existing_thread, 'thread_id', 'no_id')}")
+                
                 if hasattr(existing_thread, '_stored_messages'):
-                    logger.info(f"existing_thread._stored_messages length: {len(existing_thread._stored_messages)}")
+                    logger.info(f"📊 existing_thread._stored_messages length: {len(existing_thread._stored_messages)}")
             else:
-                logger.info("existing_thread is None - no thread found")
+                logger.info("📭 No existing thread found for this session")
             
             # If function call status should be displayed, prepare the function call stream
             function_stream = None
@@ -86,12 +100,37 @@ class ChatService:
                 
                     # Check for existing thread first to make decisions about agent creation
                     thread_id = None
-                    if existing_thread and hasattr(existing_thread, 'thread_type') and existing_thread.thread_type == "AzureAIAgentThread":
-                        if agent.agentType == "AzureAIAgent":
-                            logger.info(f"Found saved AzureAIAgentThread with ID: {existing_thread.thread_id} for session {session_id}")
-                            thread_id = existing_thread.thread_id
+                    if existing_thread:
+                        logger.info(f"🔍 Analyzing existing thread for session {session_id}: type={type(existing_thread)}")
+                        
+                        # Handle AzureAIAgentThread restoration
+                        if isinstance(existing_thread, dict) and existing_thread.get('thread_type') == "AzureAIAgentThread":
+                            if agent.agentType == "AzureAIAgent":
+                                thread_id = existing_thread.get('thread_id')
+                                logger.info(f"🔗 Found saved AzureAIAgentThread representation with ID: {thread_id} for session {session_id}")
+                                logger.debug(f"🔍 AzureAIAgentThread representation details: {existing_thread}")
+                            else:
+                                logger.warning(f"⚠️  Found AzureAIAgentThread representation but agent type is {agent.agentType}, not AzureAIAgent")
+                        # Handle legacy format
+                        elif hasattr(existing_thread, 'thread_type') and existing_thread.thread_type == "AzureAIAgentThread":
+                            if agent.agentType == "AzureAIAgent":
+                                thread_id = getattr(existing_thread, 'thread_id', None)
+                                logger.info(f"🔗 Found saved legacy AzureAIAgentThread with ID: {thread_id} for session {session_id}")
+                            else:
+                                logger.warning(f"⚠️  Found legacy AzureAIAgentThread but agent type is {agent.agentType}, not AzureAIAgent")
+                        else:
+                            logger.debug(f"🔍 Existing thread is not AzureAIAgentThread type: {type(existing_thread)} / {getattr(existing_thread, 'thread_type', 'no_thread_type')}")
+                    else:
+                        logger.info(f"📝 No existing thread found for session {session_id}")
+                    
+                    # Log thread_id decision
+                    if thread_id:
+                        logger.info(f"🎯 Will create agent with existing thread_id: {thread_id}")
+                    else:
+                        logger.info(f"🆕 Will create agent with new thread")
                     
                     # Create the agent using factory pattern - with thread_id if applicable
+                    logger.info(f"🏭 Creating agent via factory: type={agent.agentType}, thread_id={thread_id}")
                     ai_agent_temp, thread_temp = await AgentFactory.create_agent(
                         kernel, 
                         agent, 
@@ -102,18 +141,30 @@ class ChatService:
                     ai_agent: Union[ChatCompletionAgent, AzureAIAgent] = cast(Union[ChatCompletionAgent, AzureAIAgent], ai_agent_temp)
                     thread: Union[ChatHistoryAgentThread, AzureAIAgentThread] = cast(Union[ChatHistoryAgentThread, AzureAIAgentThread], thread_temp)
                     
+                    logger.info(f"🎉 Successfully created agent: {type(ai_agent).__name__} with thread: {type(thread).__name__}")
+                    if hasattr(thread, 'id'):
+                        logger.info(f"🆔 Thread ID: {getattr(thread, 'id', 'no_id')}")
+                    
                     # Handle regular thread restoration for non-AzureAI threads
                     if existing_thread is not None:
-                        logger.info(f"Checking existing_thread for session {session_id}: type={type(existing_thread)}, has_stored_messages={hasattr(existing_thread, '_stored_messages')}")
-                        if hasattr(existing_thread, '_stored_messages'):
-                            logger.info(f"existing_thread has {len(existing_thread._stored_messages)} stored messages")
+                        logger.info(f"🔄 Processing existing thread for session {session_id}")
+                        logger.debug(f"🔍 existing_thread type: {type(existing_thread)}, has_stored_messages: {hasattr(existing_thread, '_stored_messages')}")
                         
-                        # Skip AzureAIAgentThread since we already handled it above
-                        if hasattr(existing_thread, 'thread_type') and existing_thread.thread_type == "AzureAIAgentThread":
+                        if hasattr(existing_thread, '_stored_messages'):
+                            logger.info(f"📊 existing_thread has {len(existing_thread._stored_messages)} stored messages")
+                        
+                        # Skip AzureAIAgentThread since we already handled it above during agent creation
+                        if isinstance(existing_thread, dict) and existing_thread.get('thread_type') == "AzureAIAgentThread":
                             if agent.agentType == "AzureAIAgent":
-                                logger.info(f"Using restored AzureAIAgentThread with ID: {existing_thread.thread_id} for session {session_id}")
+                                logger.info(f"✅ AzureAIAgentThread already handled during agent creation for session {session_id}")
                             else:
-                                logger.warning(f"Found AzureAIAgentThread ID but agent is not AzureAIAgent type, using new thread")
+                                logger.warning(f"⚠️  Found AzureAIAgentThread representation but agent type mismatch, using new thread")
+                        # Handle legacy AzureAIAgentThread format  
+                        elif hasattr(existing_thread, 'thread_type') and existing_thread.thread_type == "AzureAIAgentThread":
+                            if agent.agentType == "AzureAIAgent":
+                                logger.info(f"✅ Legacy AzureAIAgentThread already handled during agent creation for session {session_id}")
+                            else:
+                                logger.warning(f"⚠️  Found legacy AzureAIAgentThread but agent type mismatch, using new thread")
                         # Use existing thread if it's the same type
                         elif type(existing_thread).__name__ == type(thread).__name__:
                             logger.info(f"Type check passed: existing_thread={type(existing_thread).__name__} matches thread={type(thread).__name__}")
@@ -399,8 +450,13 @@ class ChatService:
                     
                     # Persist thread after successful completion
                     if thread:
+                        logger.info(f"💾 Persisting thread for session {session_id}")
+                        logger.debug(f"🔍 Thread to persist: type={type(thread).__name__}, id={getattr(thread, 'id', 'no_id')}")
+                        
                         await self.thread_storage.save(session_id, thread)
-                        logger.info(f"Saved thread for session {session_id}")
+                        logger.info(f"✅ Successfully saved thread for session {session_id}")
+                    else:
+                        logger.warning(f"⚠️  No thread to persist for session {session_id}")
                     
             except Exception as e:
                 logger.error(f"Error in chat: {str(e)}", exc_info=True)

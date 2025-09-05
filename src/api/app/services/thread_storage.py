@@ -100,6 +100,21 @@ def restore_thread_from_serializable(thread_data):
         
         logger.debug(f"Returning new_thread: {type(new_thread)}")
         return new_thread
+    elif isinstance(thread_data, dict) and thread_data.get('thread_type') == 'AzureAIAgentThread':
+        logger.debug(f"AzureAIAgentThread dict detected with thread_id: {thread_data.get('thread_id')}")
+        
+        # Create a serializable representation for AzureAIAgentThread
+        # We can't reconstruct the actual AzureAIAgentThread here because we don't have the client
+        # Instead, we create a representation that the chat service can use
+        thread_representation = {
+            'thread_type': 'AzureAIAgentThread',
+            'thread_id': thread_data.get('thread_id'),
+            'messages': thread_data.get('messages', [])
+        }
+        
+        logger.info(f"Restored AzureAIAgentThread representation with thread_id: {thread_data.get('thread_id')}")
+        logger.debug(f"Returning AzureAIAgentThread representation: {type(thread_representation)}")
+        return thread_representation
     elif isinstance(thread_data, SerializableThread):
         # Handle legacy SerializableThread objects for backward compatibility
         logger.debug(f"SerializableThread detected, thread_type: {thread_data.thread_type}")
@@ -111,9 +126,19 @@ def restore_thread_from_serializable(thread_data):
             logger.info(f"Restored ChatHistoryAgentThread with {len(thread_data.messages)} stored messages available")
             logger.debug(f"Returning new_thread: {type(new_thread)}")
             return new_thread
+        elif thread_data.thread_type == "AzureAIAgentThread":
+            # Handle legacy AzureAIAgentThread SerializableThread objects
+            thread_representation = {
+                'thread_type': 'AzureAIAgentThread',
+                'thread_id': thread_data.thread_id,
+                'messages': thread_data.messages
+            }
+            logger.info(f"Restored legacy AzureAIAgentThread representation with thread_id: {thread_data.thread_id}")
+            logger.debug(f"Returning legacy AzureAIAgentThread representation: {type(thread_representation)}")
+            return thread_representation
     
     # If not a thread dict/object, return as-is
-    logger.debug(f"Not a ChatHistoryAgentThread representation, returning as-is: {type(thread_data)}")
+    logger.debug(f"Not a recognized thread representation, returning as-is: {type(thread_data)}")
     return thread_data
 
 # Global storage that persists across instances
@@ -155,6 +180,7 @@ class InMemoryThreadStorage(ThreadStorage[T]):
             # Special handling for AzureAIAgentThread
             if hasattr(thread, '__class__') and thread.__class__.__name__ == "AzureAIAgentThread":
                 thread_id = getattr(thread, "id", None)
+                logger.info(f"🔍 Saving AzureAIAgentThread: thread has id attribute={hasattr(thread, 'id')}, id value={thread_id}")
                 if thread_id:
                     serializable = {
                         'thread_type': "AzureAIAgentThread",
@@ -165,10 +191,12 @@ class InMemoryThreadStorage(ThreadStorage[T]):
                     serialized_bytes = pickle.dumps(serializable)
                     serialized_thread = base64.b64encode(serialized_bytes).decode('ascii') if self.use_serialization else serializable
                     self._storage[session_id] = serialized_thread
-                    logger.debug(f"Saved AzureAIAgentThread ID {thread_id} for session {session_id} to memory")
+                    logger.info(f"✅ Saved AzureAIAgentThread ID {thread_id} for session {session_id} to memory")
+                    logger.debug(f"🔍 Serialized data type: {type(serialized_thread)}, use_serialization: {self.use_serialization}")
                     return
                 else:
-                    logger.warning(f"AzureAIAgentThread has no ID, cannot save for session {session_id}")
+                    logger.warning(f"⚠️  AzureAIAgentThread has no ID, cannot save for session {session_id}")
+                    logger.debug(f"🔍 Thread attributes: {[attr for attr in dir(thread) if not attr.startswith('_')]}")
                     return
             
             # Create a clean, serializable copy for all other thread types
@@ -191,30 +219,39 @@ class InMemoryThreadStorage(ThreadStorage[T]):
     async def load(self, session_id: str) -> Optional[T]:
         """Load thread from in-memory storage."""
         data = self._storage.get(session_id)
+        logger.info(f"🔍 Loading from memory storage for session {session_id}: found={data is not None}")
         
         if data:
             try:
                 if self.use_serialization:
                     # Deserialize with base64 decoding
+                    logger.debug(f"🔍 Deserializing base64 encoded data")
                     binary_data = base64.b64decode(data)
                     thread = pickle.loads(binary_data)
                 else:
+                    logger.debug(f"🔍 Using direct data (no serialization)")
                     thread = data
+                
+                logger.debug(f"🔍 Raw loaded thread type: {type(thread)}")
                 
                 # Handle thread restoration from dictionary or legacy SerializableThread
                 thread = restore_thread_from_serializable(thread)
+                logger.debug(f"🔍 After restoration: {type(thread)}")
                 
                 if hasattr(thread, '_stored_messages'):
-                    logger.info(f"Successfully loaded thread with {len(thread._stored_messages)} stored messages for session {session_id}")
+                    logger.info(f"✅ Successfully loaded thread with {len(thread._stored_messages)} stored messages for session {session_id}")
+                elif isinstance(thread, dict) and thread.get('thread_type') == 'AzureAIAgentThread':
+                    logger.info(f"✅ Successfully loaded AzureAIAgentThread representation with thread_id {thread.get('thread_id')} for session {session_id}")
                 else:
-                    logger.info(f"Loaded thread for session {session_id} (no stored messages)")
+                    logger.info(f"✅ Loaded thread for session {session_id} (no stored messages)")
                     
-                logger.debug(f"Loaded thread for session {session_id} from memory")
+                logger.debug(f"✅ Loaded thread for session {session_id} from memory")
                 return thread
             except Exception as e:
-                logger.error(f"Error loading thread from memory: {str(e)}", exc_info=True)
+                logger.error(f"❌ Error loading thread from memory: {str(e)}", exc_info=True)
                 return None
-                
+        
+        logger.info(f"📭 No thread data found in memory for session {session_id}")        
         return None
 
     async def delete(self, session_id: str) -> None:
