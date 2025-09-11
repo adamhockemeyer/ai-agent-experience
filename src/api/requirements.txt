@@ -13,3 +13,9 @@ azure-monitor-opentelemetry
 azure-monitor-opentelemetry-exporter>=1.0.0b41
 python-dotenv>=1.0.0
 markitdown[all]
+
+# Microsoft Agents SDK packages
+microsoft-agents-hosting-core
+microsoft-agents-hosting-aiohttp
+microsoft-agents-authentication-msal
+microsoft-agents-activity

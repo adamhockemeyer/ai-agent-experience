@@ -30,6 +30,12 @@ The Weather Agent interface allows users to:
 
 ![Agent Chat](images/agent_iframe_embed.png)
 
+### Microsoft Teams Integration
+
+![Teams Integration](images/agent_teams_ui.png)
+
+The platform integrates with Microsoft Teams through the [Microsoft Agents SDK](https://github.com/microsoft/agents), which connects to the backend API and exposes Semantic Kernel agents to Teams using Azure Bot Service. This allows users to interact with AI agents directly within their Teams environment.
+
 ### Settings & Configuration
 
 ![Agent Settings](images/agent_settings.png)
@@ -143,49 +149,7 @@ The `--reload` flag seems to cause issues on Windows when trying to run MCP plug
 
 [Remove --reload flag, for FastAPI](https://github.com/modelcontextprotocol/python-sdk/issues/359#issuecomment-2761351547)
 
-### Event Grid System Topic Handling
 
-Azure only allows **one Event Grid system topic per storage account**, but that topic can have **multiple subscriptions**. Some Azure services automatically create system topics, which can cause deployment conflicts. 
-
-The deployment uses a smart approach via the `event-grid-conditional.bicep` module that:
-
-1. **Checks for existing system topics** for the storage account across the entire subscription
-2. **Uses the existing topic** if found, or **creates a new one** if none exists
-3. **Always creates a new subscription** on the topic (existing or new) for the MCP search index function
-4. **Handles race conditions** where a topic might be created between the check and creation attempt
-
-#### How it works:
-
-The deployment script:
-- Searches for any existing system topic that matches your storage account
-- If found: Uses that existing topic and creates a subscription on it
-- If not found: Creates a new system topic and then creates a subscription
-- If creation fails (race condition): Re-searches and uses the topic that was created
-
-This approach is **fully automated** and handles the most common scenarios:
-- ✅ Fresh deployment (no existing topics)
-- ✅ Existing topic created by Azure automation
-- ✅ Existing topic created by previous deployment
-- ✅ Race conditions during concurrent deployments
-
-#### If you encounter issues:
-
-**Manual cleanup** (only if needed):
-```bash
-# List all system topics for your storage account
-az eventgrid system-topic list --query "[?contains(source, 'your-storage-account-name')]" -o table
-
-# If needed, delete conflicting subscriptions (not the topic itself)
-az eventgrid event-subscription delete --name "subscription-name" --source-resource-id "topic-resource-id"
-```
-
-**Check deployment logs** if the script fails:
-```bash
-# View deployment script logs
-az deployment group show --resource-group "your-rg" --name "your-deployment-name" --query "properties.outputs"
-```
-
-The automated approach eliminates the need for manual pre-deployment scripts in most cases!
 
 ### App Configuration Limits
 
@@ -208,14 +172,33 @@ az cosmosdb sql role assignment create --resource-group "apichat-rg" --account-n
 
 For more detailed instructions, refer to the [official documentation](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access).
 
+## Teams Setup
+
+
+- Azure Bot Service Resource in Azure is required
+  - The `Messaging endpoint` is the api backend + `/api/messages` (i.e. `https://api.something.eastus2.azurecontainerapps.io/api/messages`)
+  - Ensure the Teams channel is configured.
+  - You will need to manually create an app secret for the app registration for now.
+- Create a new teams app, fill in the required information and download the app manifest
+  - https://dev.teams.microsoft.com/
+- Upload the app manifest into the teams admin portal
+  - https://admin.teams.microsoft.com/policies/manage-apps
+- Example
+  - https://github.com/Azure-Samples/AI-Foundry-Connections/tree/main/src/samples/adb_aifoundry_teams
+
+
 ## Architecture Overview
 
 ```mermaid
 graph TB
     User[👤 User] --> WebApp[🌐 Web App<br/>Azure Container App]
+    User --> Teams[💬 Microsoft Teams<br/>Teams Integration]
+    
+    Teams --> BotService[🤖 Azure Bot Service<br/>Bot Framework]
+    BotService --> APIApp[🔌 API App<br/>Azure Container App]
     
     WebApp --> AppConfig1[⚙️ App Configuration<br/>Website Config]
-    WebApp --> APIApp[🔌 API App<br/>Azure Container App]
+    WebApp --> APIApp
     
     APIApp --> AppConfig2[⚙️ App Configuration<br/>Agent Configs]
     APIApp --> AIAgentService[🤖 Azure AI Agent Service<br/>Agent Orchestration]
@@ -246,6 +229,8 @@ graph TB
     AgentConfigs --> Orchestrator["🎯 Orchestrator Agent<br/>• SAP Agent<br/>• Weather Agent<br/>(Agent Tools)"]
     
     style WebApp fill:#e1f5fe
+    style Teams fill:#e3f2fd
+    style BotService fill:#e8eaf6
     style APIApp fill:#f3e5f5
     style AppConfig1 fill:#fff3e0
     style AppConfig2 fill:#fff3e0

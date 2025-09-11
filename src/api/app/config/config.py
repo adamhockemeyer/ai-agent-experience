@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     openapi_cache_ttl_seconds: int = 90  # 1 hour default TTL
     openapi_cache_refresh_interval_seconds: int = 300  # 5 minutes default refresh interval
 
+    # Microsoft Agents SDK configuration
+    microsoft_agents_client_id: str = ""
+    microsoft_agents_client_secret: str = ""
+    microsoft_agents_tenant_id: str = ""
+    microsoft_agents_bot_app_id: str = ""
+
     model_config = ConfigDict(
         env_file=".env",
         extra="allow"  # Allow extra fields not defined in the model

@@ -70,6 +70,12 @@
     },
     "webAppExists": {
       "value": "${SERVICE_WEB_RESOURCE_EXISTS}"
+    },
+    "microsoftAgentsClientSecret": {
+      "value": "${MICROSOFT_AGENTS_CLIENT_SECRET}"
+    },
+    "microsoftAgentsBotAppId": {
+      "value": "${MICROSOFT_AGENTS_BOT_APP_ID}"
     }
   }
 }

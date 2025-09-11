@@ -29,6 +29,10 @@ param commonTags object = {
 param apimPublisherEmail string = 'user@company.com'
 param apiAppExists bool = false
 param webAppExists bool = false
+
+@secure()
+@description('Microsoft Agents SDK Client Secret for Bot Framework authentication')
+param microsoftAgentsClientSecret string = ''
 param azureMapsLocation string
 
 var sharedRoleDefinitions = loadJsonContent('./role-definitions.json')
@@ -756,6 +760,18 @@ module containerRegistry 'container-apps/container-registry.bicep' = {
   }
 }
 
+// Bot Framework Service (created before API container app to avoid circular dependency)
+module botService 'bot-service/bot-registration.bicep' = {
+  name: '${prefix}-bot-service'
+  params: {
+    botName: '${prefix}-bot'
+    botDisplayName: 'AI Agent Experience Bot'
+    botDescription: 'AI Agent Bot for Microsoft Teams and Copilot integration'
+    messagingEndpoint: 'https://placeholder-will-be-updated-after-deployment/api/messages'
+    commonTags: commonTags
+  }
+}
+
 module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
   name: '${prefix}-api-container-app'
   params: {
@@ -855,6 +871,23 @@ module apiContainerApp 'container-apps/container-app-upsert.bicep' = {
         name: 'EMBEDDING_DIMENSIONS'
         value: '1536'
       }
+      // Microsoft Agents SDK configuration
+      {
+        name: 'MICROSOFT_AGENTS_CLIENT_ID'
+        value: botService.outputs.microsoftAppId
+      }
+      {
+        name: 'MICROSOFT_AGENTS_CLIENT_SECRET'
+        value: microsoftAgentsClientSecret
+      }
+      {
+        name: 'MICROSOFT_AGENTS_TENANT_ID'
+        value: botService.outputs.microsoftAppTenantId
+      }
+      {
+        name: 'MICROSOFT_AGENTS_BOT_APP_ID'
+        value: botService.outputs.microsoftAppId
+      }
     ]
     targetPort: 8000
   }
@@ -915,6 +948,52 @@ module bing 'bing-grounding.bicep' = {
   params: {
     baseName: prefix
     tags: commonTags
+  }
+}
+
+// Note: Microsoft Graph Bicep templates don't support creating client secrets
+// The client secret must be created manually after deployment and stored in Key Vault
+// You can use the following Azure CLI command after deployment:
+// az ad app credential reset --id <APP_ID> --display-name "Bot Framework Secret" --years 2
+
+// Update Bot Service messaging endpoint with actual API URL
+resource updateBotMessagingEndpoint 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
+  name: 'updateBotMessagingEndpoint'
+  location: location
+  kind: 'AzureCLI'
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${userAssignedManagedIdentity.id}': {}
+    }
+  }
+  properties: {
+    azCliVersion: '2.50.0'
+    storageAccountSettings: {
+      storageAccountName: storageAccount.outputs.storageAccountName
+      storageAccountKey: listKeys(storageAccountResourceId, '2023-05-01').keys[0].value
+    }
+    scriptContent: '''
+      echo "Updating Bot Service messaging endpoint..."
+      echo "Bot Name: ${BOT_NAME}"
+      echo "Resource Group: ${RESOURCE_GROUP}"
+      echo "API URL: ${API_URL}"
+      
+      # Update the Bot Service messaging endpoint
+      az bot update \
+        --name "${BOT_NAME}" \
+        --resource-group "${RESOURCE_GROUP}" \
+        --endpoint "${API_URL}/api/messages"
+      
+      echo "Bot Service messaging endpoint updated successfully"
+    '''
+    environmentVariables: [
+      { name: 'BOT_NAME', value: botService.outputs.botServiceName }
+      { name: 'RESOURCE_GROUP', value: resourceGroup().name }
+      { name: 'API_URL', value: apiContainerApp.outputs.uri }
+    ]
+    timeout: 'PT5M'
+    retentionInterval: 'PT1H'
   }
 }
 
@@ -1190,3 +1269,8 @@ output AZURE_OPENAI_ENDPOINT string = cognitiveServices1.outputs.endpoint
 output AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME string = openAIDeployments1.outputs.embeddingDeploymentName
 // Expose the resolved naming prefix so post-deploy scripts (e.g., Event Grid subscription naming) can align
 output EVENTGRID_RESOURCE_PREFIX string = prefix
+
+// Bot Framework outputs
+output BOT_SERVICE_NAME string = botService.outputs.botServiceName
+output BOT_MESSAGING_ENDPOINT string = botService.outputs.messagingEndpoint
+output BOT_TEAMS_CHANNEL_ENABLED bool = botService.outputs.teamsChannelEnabled
